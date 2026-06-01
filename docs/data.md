@@ -255,7 +255,11 @@ nohup python -u baselines/torchreid/evaluate.py \
   > resnet50_eval_finetuned.log 2>&1 &
 ```
 
-Run three Torchreid baselines and aggregate results:
+Run the default Torchreid baseline set and aggregate results:
+
+```text
+osnet_x1_0, osnet_ain_x1_0, osnet_ibn_x1_0, resnet50, resnet101, mobilenetv2_x1_0
+```
 
 ```bash
 nohup python -u baselines/torchreid/run_all.py \

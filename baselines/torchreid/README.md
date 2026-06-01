@@ -59,7 +59,16 @@ nohup python -u baselines/torchreid/evaluate.py \
 
 ## Run Multiple Baselines
 
-Run OSNet, ResNet50, and OSNet-AIN sequentially, then aggregate the metrics:
+Run the default baseline set sequentially, then aggregate the metrics:
+
+```text
+osnet_x1_0
+osnet_ain_x1_0
+osnet_ibn_x1_0
+resnet50
+resnet101
+mobilenetv2_x1_0
+```
 
 ```bash
 nohup python -u baselines/torchreid/run_all.py \
@@ -70,6 +79,20 @@ nohup python -u baselines/torchreid/run_all.py \
   --epochs 20 \
   --batch-size 64 \
   > run_all_baselines.log 2>&1 &
+```
+
+To run a smaller custom set:
+
+```bash
+nohup python -u baselines/torchreid/run_all.py \
+  --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
+  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
+  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
+  --results-root results/baselines \
+  --models osnet_x1_0 resnet50 mobilenetv2_x1_0 \
+  --epochs 20 \
+  --batch-size 64 \
+  > run_custom_baselines.log 2>&1 &
 ```
 
 Outputs:

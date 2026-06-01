@@ -11,7 +11,14 @@ import sys
 from pathlib import Path
 
 
-DEFAULT_MODELS = ["osnet_x1_0", "resnet50", "osnet_ain_x1_0"]
+DEFAULT_MODELS = [
+    "osnet_x1_0",
+    "osnet_ain_x1_0",
+    "osnet_ibn_x1_0",
+    "resnet50",
+    "resnet101",
+    "mobilenetv2_x1_0",
+]
 
 
 def parse_args() -> argparse.Namespace:
