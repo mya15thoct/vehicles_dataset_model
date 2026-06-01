@@ -1,0 +1,70 @@
+{
+  "image_root": "/mnt/ngan/vehicles",
+  "annotation_root": "/mnt/ngan/vehicles/annotation",
+  "conditions": [
+    {
+      "name": "morning_norain",
+      "status": "completed",
+      "views": {
+        "before": {
+          "annotation": "morning_norain_before.xml",
+          "images": "morning_norain_before"
+        },
+        "after": {
+          "annotation": "morning_norain_after.xml",
+          "images": "morning_norain_after"
+        }
+      }
+    },
+    {
+      "name": "evening_norain",
+      "status": "completed",
+      "views": {
+        "before": {
+          "annotation": "evening_norain_before.xml",
+          "images": "evening_norain_before"
+        },
+        "after": {
+          "annotation": "evening_norain_after.xml",
+          "images": "evening_norain_after"
+        }
+      }
+    },
+    {
+      "name": "morning_rain",
+      "status": "in_progress",
+      "views": {
+        "before": {
+          "annotation": "morning_rain_before.xml",
+          "images": "morning_rain_before"
+        },
+        "after": {
+          "annotation": "morning_rain_after.xml",
+          "images": "morning_rain_after"
+        }
+      }
+    },
+    {
+      "name": "evening_rain",
+      "status": "in_progress",
+      "views": {
+        "before1": {
+          "annotation": "evening_rain_before1.xml",
+          "images": "evening_rain_before1"
+        },
+        "before2": {
+          "annotation": "evening_rain_before2.xml",
+          "images": "evening_rain_before2"
+        },
+        "after1": {
+          "annotation": "evening_rain_after1.xml",
+          "images": "evening_rain_after1"
+        },
+        "after2": {
+          "annotation": "evening_rain_after2.xml",
+          "images": "evening_rain_after2"
+        }
+      }
+    }
+  ]
+}
