@@ -183,3 +183,13 @@ python scripts/build_reid_split.py \
   --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
   --output-root /mnt/ngan/vehicles/reid_benchmark
 ```
+
+Run the first pretrained OSNet baseline:
+
+```bash
+nohup python -u baselines/osnet/evaluate.py \
+  --query /mnt/ngan/vehicles/reid_benchmark/query.csv \
+  --gallery /mnt/ngan/vehicles/reid_benchmark/gallery.csv \
+  --output results/osnet_pretrained.json \
+  > osnet_eval.log 2>&1 &
+```
