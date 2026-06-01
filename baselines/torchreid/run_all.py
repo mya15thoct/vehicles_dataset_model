@@ -23,9 +23,21 @@ DEFAULT_MODELS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--manifest",
+        default="/mnt/ngan/vehicles/reid_crops/manifest.csv",
+        help="Crop manifest used to auto-build identity splits if split CSV files are missing.",
+    )
     parser.add_argument("--train-csv", default="/mnt/ngan/vehicles/reid_benchmark_identity/train.csv")
     parser.add_argument("--query", default="/mnt/ngan/vehicles/reid_benchmark_identity/query.csv")
     parser.add_argument("--gallery", default="/mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv")
+    parser.add_argument(
+        "--split-output-root",
+        default="",
+        help="Output root for auto-built train/query/gallery split. Defaults to the train CSV parent.",
+    )
+    parser.add_argument("--train-ratio", type=float, default=0.7)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--results-root", default="results/baselines")
     parser.add_argument(
         "--models",
@@ -49,11 +61,53 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip a model if its eval.json already exists.",
     )
+    parser.add_argument(
+        "--no-auto-split",
+        action="store_true",
+        help="Do not auto-build missing train/query/gallery split files.",
+    )
     return parser.parse_args()
 
 
 def safe_name(model_name: str) -> str:
     return model_name.replace("/", "_").replace("-", "_")
+
+
+def ensure_split_files(args: argparse.Namespace, results_root: Path) -> None:
+    split_paths = [Path(args.train_csv), Path(args.query), Path(args.gallery)]
+    missing = [path for path in split_paths if not path.exists()]
+    if not missing:
+        return
+
+    if args.no_auto_split:
+        missing_text = ", ".join(str(path) for path in missing)
+        raise FileNotFoundError(
+            f"Missing split files: {missing_text}. "
+            "Run scripts/build_train_test_split.py first or remove --no-auto-split."
+        )
+
+    split_output_root = Path(args.split_output_root) if args.split_output_root else Path(args.train_csv).parent
+    print("Missing identity split files; building them first.", flush=True)
+    print(f"Missing: {', '.join(str(path) for path in missing)}", flush=True)
+    command = [
+        sys.executable,
+        "-u",
+        "scripts/build_train_test_split.py",
+        "--manifest",
+        args.manifest,
+        "--output-root",
+        str(split_output_root),
+        "--train-ratio",
+        str(args.train_ratio),
+        "--seed",
+        str(args.seed),
+    ]
+    run_command(command, results_root / "build_train_test_split.log")
+
+    still_missing = [path for path in split_paths if not path.exists()]
+    if still_missing:
+        missing_text = ", ".join(str(path) for path in still_missing)
+        raise FileNotFoundError(f"Split build finished but files are still missing: {missing_text}")
 
 
 def run_command(command: list[str], log_path: Path) -> None:
@@ -159,6 +213,7 @@ def main() -> int:
     args = parse_args()
     results_root = Path(args.results_root)
     results_root.mkdir(parents=True, exist_ok=True)
+    ensure_split_files(args, results_root)
 
     all_results = []
     for model_name in args.models:

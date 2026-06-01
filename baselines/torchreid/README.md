@@ -72,6 +72,7 @@ mobilenetv2_x1_0
 
 ```bash
 nohup python -u baselines/torchreid/run_all.py \
+  --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
   --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
   --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
   --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
@@ -85,6 +86,7 @@ To run a smaller custom set:
 
 ```bash
 nohup python -u baselines/torchreid/run_all.py \
+  --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
   --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
   --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
   --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
@@ -104,3 +106,5 @@ results/baselines/<model_name>/train.log
 results/baselines/<model_name>/eval.log
 results/baselines/<model_name>/eval.json
 ```
+
+If `train.csv`, `query.csv`, or `gallery.csv` are missing, `run_all.py` automatically builds them from the manifest before training.

@@ -263,6 +263,7 @@ osnet_x1_0, osnet_ain_x1_0, osnet_ibn_x1_0, resnet50, resnet101, mobilenetv2_x1_
 
 ```bash
 nohup python -u baselines/torchreid/run_all.py \
+  --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
   --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
   --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
   --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
