@@ -175,3 +175,11 @@ python scripts/export_reid_crops.py \
   --completed-only \
   --output-root /mnt/ngan/vehicles/reid_crops
 ```
+
+Build query/gallery CSV files:
+
+```bash
+python scripts/build_reid_split.py \
+  --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
+  --output-root /mnt/ngan/vehicles/reid_benchmark
+```
