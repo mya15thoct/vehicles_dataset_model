@@ -159,6 +159,8 @@ The initial data pipeline files are:
 configs/dataset.json
 scripts/validate_annotations.py
 scripts/export_reid_crops.py
+scripts/build_reid_split.py
+scripts/build_train_test_split.py
 ```
 
 Validate the completed local XML working copies:
@@ -184,7 +186,18 @@ python scripts/build_reid_split.py \
   --output-root /mnt/ngan/vehicles/reid_benchmark
 ```
 
-Run the first pretrained OSNet baseline:
+Build identity-disjoint train/test split for the main paper benchmark:
+
+```bash
+nohup python -u scripts/build_train_test_split.py \
+  --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
+  --output-root /mnt/ngan/vehicles/reid_benchmark_identity \
+  --train-ratio 0.7 \
+  --seed 42 \
+  > build_train_test_split.log 2>&1 &
+```
+
+Run the first pretrained OSNet sanity-check baseline:
 
 ```bash
 nohup python -u baselines/osnet/evaluate.py \
@@ -192,4 +205,52 @@ nohup python -u baselines/osnet/evaluate.py \
   --gallery /mnt/ngan/vehicles/reid_benchmark/gallery.csv \
   --output results/osnet_pretrained.json \
   > osnet_eval.log 2>&1 &
+```
+
+Train/fine-tune OSNet for the main benchmark:
+
+```bash
+nohup python -u baselines/torchreid/train.py \
+  --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
+  --model-name osnet_x1_0 \
+  --output-dir results/osnet_finetuned \
+  --epochs 20 \
+  --batch-size 64 \
+  > osnet_train.log 2>&1 &
+```
+
+Evaluate fine-tuned OSNet:
+
+```bash
+nohup python -u baselines/torchreid/evaluate.py \
+  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
+  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
+  --model-name osnet_x1_0 \
+  --weights results/osnet_finetuned/model_last.pth \
+  --output results/osnet_finetuned/eval.json \
+  > osnet_eval_finetuned.log 2>&1 &
+```
+
+Train/fine-tune ResNet50:
+
+```bash
+nohup python -u baselines/torchreid/train.py \
+  --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
+  --model-name resnet50 \
+  --output-dir results/resnet50_finetuned \
+  --epochs 20 \
+  --batch-size 64 \
+  > resnet50_train.log 2>&1 &
+```
+
+Evaluate fine-tuned ResNet50:
+
+```bash
+nohup python -u baselines/torchreid/evaluate.py \
+  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
+  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
+  --model-name resnet50 \
+  --weights results/resnet50_finetuned/model_last.pth \
+  --output results/resnet50_finetuned/eval.json \
+  > resnet50_eval_finetuned.log 2>&1 &
 ```
