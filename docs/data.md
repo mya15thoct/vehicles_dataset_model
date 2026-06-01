@@ -23,7 +23,7 @@ The full dataset is planned to contain four conditions:
 Frame images are stored on the server at:
 
 ```text
-/mnt/ngan/vehicles
+/mnt/ngan/vehicles/multi-weather_traffic_data
 ```
 
 Annotation XML files are stored in this code repository at:
@@ -36,16 +36,16 @@ Each XML file should be paired with the image folder that has the same base name
 
 | Annotation file | Server image folder |
 | --- | --- |
-| `annotation/morning_norain_before.xml` | `/mnt/ngan/vehicles/morning_norain_before/` |
-| `annotation/morning_norain_after.xml` | `/mnt/ngan/vehicles/morning_norain_after/` |
-| `annotation/evening_norain_before.xml` | `/mnt/ngan/vehicles/evening_norain_before/` |
-| `annotation/evening_norain_after.xml` | `/mnt/ngan/vehicles/evening_norain_after/` |
-| `annotation/morning_rain_before.xml` | `/mnt/ngan/vehicles/morning_rain_before/` |
-| `annotation/morning_rain_after.xml` | `/mnt/ngan/vehicles/morning_rain_after/` |
-| `annotation/evening_rain_before1.xml` | `/mnt/ngan/vehicles/evening_rain_before1/` |
-| `annotation/evening_rain_before2.xml` | `/mnt/ngan/vehicles/evening_rain_before2/` |
-| `annotation/evening_rain_after1.xml` | `/mnt/ngan/vehicles/evening_rain_after1/` |
-| `annotation/evening_rain_after2.xml` | `/mnt/ngan/vehicles/evening_rain_after2/` |
+| `annotation/morning_norain_before.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/morning_norain_before/` |
+| `annotation/morning_norain_after.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/morning_norain_after/` |
+| `annotation/evening_norain_before.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_norain_before/` |
+| `annotation/evening_norain_after.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_norain_after/` |
+| `annotation/morning_rain_before.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/morning_rain_before/` |
+| `annotation/morning_rain_after.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/morning_rain_after/` |
+| `annotation/evening_rain_before1.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_before1/` |
+| `annotation/evening_rain_before2.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_before2/` |
+| `annotation/evening_rain_after1.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_after1/` |
+| `annotation/evening_rain_after2.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_after2/` |
 
 ## Annotation Format
 

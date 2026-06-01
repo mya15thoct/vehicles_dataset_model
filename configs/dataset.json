@@ -1,5 +1,5 @@
 {
-  "image_root": "/mnt/ngan/vehicles",
+  "image_root": "/mnt/ngan/vehicles/multi-weather_traffic_data",
   "annotation_root": "annotation",
   "conditions": [
     {
