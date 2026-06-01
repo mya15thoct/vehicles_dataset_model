@@ -26,27 +26,26 @@ Frame images are stored on the server at:
 /mnt/ngan/vehicles
 ```
 
-Annotation XML files are stored on the server at:
+Annotation XML files are stored in this code repository at:
 
 ```text
-/mnt/ngan/vehicles/annotation
+annotation
 ```
 
-The local XML files in this workspace are stored in `annotation/` as working copies for inspection and editing.
 Each XML file should be paired with the image folder that has the same base name.
 
 | Annotation file | Server image folder |
 | --- | --- |
-| `/mnt/ngan/vehicles/annotation/morning_norain_before.xml` | `/mnt/ngan/vehicles/morning_norain_before/` |
-| `/mnt/ngan/vehicles/annotation/morning_norain_after.xml` | `/mnt/ngan/vehicles/morning_norain_after/` |
-| `/mnt/ngan/vehicles/annotation/evening_norain_before.xml` | `/mnt/ngan/vehicles/evening_norain_before/` |
-| `/mnt/ngan/vehicles/annotation/evening_norain_after.xml` | `/mnt/ngan/vehicles/evening_norain_after/` |
-| `/mnt/ngan/vehicles/annotation/morning_rain_before.xml` | `/mnt/ngan/vehicles/morning_rain_before/` |
-| `/mnt/ngan/vehicles/annotation/morning_rain_after.xml` | `/mnt/ngan/vehicles/morning_rain_after/` |
-| `/mnt/ngan/vehicles/annotation/evening_rain_before1.xml` | `/mnt/ngan/vehicles/evening_rain_before1/` |
-| `/mnt/ngan/vehicles/annotation/evening_rain_before2.xml` | `/mnt/ngan/vehicles/evening_rain_before2/` |
-| `/mnt/ngan/vehicles/annotation/evening_rain_after1.xml` | `/mnt/ngan/vehicles/evening_rain_after1/` |
-| `/mnt/ngan/vehicles/annotation/evening_rain_after2.xml` | `/mnt/ngan/vehicles/evening_rain_after2/` |
+| `annotation/morning_norain_before.xml` | `/mnt/ngan/vehicles/morning_norain_before/` |
+| `annotation/morning_norain_after.xml` | `/mnt/ngan/vehicles/morning_norain_after/` |
+| `annotation/evening_norain_before.xml` | `/mnt/ngan/vehicles/evening_norain_before/` |
+| `annotation/evening_norain_after.xml` | `/mnt/ngan/vehicles/evening_norain_after/` |
+| `annotation/morning_rain_before.xml` | `/mnt/ngan/vehicles/morning_rain_before/` |
+| `annotation/morning_rain_after.xml` | `/mnt/ngan/vehicles/morning_rain_after/` |
+| `annotation/evening_rain_before1.xml` | `/mnt/ngan/vehicles/evening_rain_before1/` |
+| `annotation/evening_rain_before2.xml` | `/mnt/ngan/vehicles/evening_rain_before2/` |
+| `annotation/evening_rain_after1.xml` | `/mnt/ngan/vehicles/evening_rain_after1/` |
+| `annotation/evening_rain_after2.xml` | `/mnt/ngan/vehicles/evening_rain_after2/` |
 
 ## Annotation Format
 
@@ -165,7 +164,7 @@ scripts/export_reid_crops.py
 Validate the completed local XML working copies:
 
 ```bash
-python scripts/validate_annotations.py --annotation-root annotation
+python scripts/validate_annotations.py
 ```
 
 Export Re-ID crops on the server:

@@ -1,6 +1,6 @@
 {
   "image_root": "/mnt/ngan/vehicles",
-  "annotation_root": "/mnt/ngan/vehicles/annotation",
+  "annotation_root": "annotation",
   "conditions": [
     {
       "name": "morning_norain",
