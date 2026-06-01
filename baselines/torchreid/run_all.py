@@ -29,6 +29,8 @@ def parse_args() -> argparse.Namespace:
         help="Crop manifest used to auto-build identity splits if split CSV files are missing.",
     )
     parser.add_argument("--train-csv", default="/mnt/ngan/vehicles/reid_benchmark_identity/train.csv")
+    parser.add_argument("--val-query", default="/mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv")
+    parser.add_argument("--val-gallery", default="/mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv")
     parser.add_argument("--query", default="/mnt/ngan/vehicles/reid_benchmark_identity/query.csv")
     parser.add_argument("--gallery", default="/mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv")
     parser.add_argument(
@@ -37,6 +39,7 @@ def parse_args() -> argparse.Namespace:
         help="Output root for auto-built train/query/gallery split. Defaults to the train CSV parent.",
     )
     parser.add_argument("--train-ratio", type=float, default=0.7)
+    parser.add_argument("--val-ratio", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--results-root", default="results/baselines")
     parser.add_argument(
@@ -46,6 +49,7 @@ def parse_args() -> argparse.Namespace:
         help="Torchreid model names to train and evaluate.",
     )
     parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--eval-every", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--lr", type=float, default=3e-4)
@@ -74,7 +78,13 @@ def safe_name(model_name: str) -> str:
 
 
 def ensure_split_files(args: argparse.Namespace, results_root: Path) -> None:
-    split_paths = [Path(args.train_csv), Path(args.query), Path(args.gallery)]
+    split_paths = [
+        Path(args.train_csv),
+        Path(args.val_query),
+        Path(args.val_gallery),
+        Path(args.query),
+        Path(args.gallery),
+    ]
     missing = [path for path in split_paths if not path.exists()]
     if not missing:
         return
@@ -99,6 +109,8 @@ def ensure_split_files(args: argparse.Namespace, results_root: Path) -> None:
         str(split_output_root),
         "--train-ratio",
         str(args.train_ratio),
+        "--val-ratio",
+        str(args.val_ratio),
         "--seed",
         str(args.seed),
     ]
@@ -139,12 +151,18 @@ def train_command(args: argparse.Namespace, model_name: str, output_dir: Path) -
         "baselines/torchreid/train.py",
         "--train-csv",
         args.train_csv,
+        "--val-query",
+        args.val_query,
+        "--val-gallery",
+        args.val_gallery,
         "--model-name",
         model_name,
         "--output-dir",
         str(output_dir),
         "--epochs",
         str(args.epochs),
+        "--eval-every",
+        str(args.eval_every),
         "--batch-size",
         str(args.batch_size),
         "--num-workers",
@@ -160,6 +178,9 @@ def train_command(args: argparse.Namespace, model_name: str, output_dir: Path) -
 
 
 def eval_command(args: argparse.Namespace, model_name: str, output_dir: Path, eval_path: Path) -> list[str]:
+    weights_path = output_dir / "model_best.pth"
+    if not weights_path.exists():
+        weights_path = output_dir / "model_last.pth"
     command = [
         sys.executable,
         "-u",
@@ -171,7 +192,7 @@ def eval_command(args: argparse.Namespace, model_name: str, output_dir: Path, ev
         "--model-name",
         model_name,
         "--weights",
-        str(output_dir / "model_last.pth"),
+        str(weights_path),
         "--output",
         str(eval_path),
         "--batch-size",

@@ -28,6 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest", default="/mnt/ngan/vehicles/reid_crops/manifest.csv")
     parser.add_argument("--output-root", default="/mnt/ngan/vehicles/reid_benchmark_identity")
     parser.add_argument("--train-ratio", type=float, default=0.7)
+    parser.add_argument("--val-ratio", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -72,6 +73,12 @@ def main() -> int:
     if not 0.0 < args.train_ratio < 1.0:
         print("--train-ratio must be between 0 and 1", file=sys.stderr)
         return 1
+    if not 0.0 <= args.val_ratio < 1.0:
+        print("--val-ratio must be between 0 and 1", file=sys.stderr)
+        return 1
+    if args.train_ratio + args.val_ratio >= 1.0:
+        print("--train-ratio + --val-ratio must be less than 1", file=sys.stderr)
+        return 1
 
     manifest_path = Path(args.manifest)
     output_root = Path(args.output_root)
@@ -89,20 +96,41 @@ def main() -> int:
 
     rng = random.Random(args.seed)
     train_keys = set()
+    val_keys = set()
     test_keys = set()
     for condition, condition_keys in sorted(keys_by_condition.items()):
         shuffled = condition_keys[:]
         rng.shuffle(shuffled)
-        train_count = max(1, int(round(len(shuffled) * args.train_ratio)))
-        train_count = min(train_count, len(shuffled) - 1)
+        count = len(shuffled)
+        train_count = max(1, int(round(count * args.train_ratio)))
+        val_count = int(round(count * args.val_ratio))
+        if count >= 3:
+            val_count = max(1, val_count)
+        train_count = min(train_count, count - val_count - 1)
+        if train_count < 1:
+            train_count = 1
+        if train_count + val_count >= count:
+            val_count = max(0, count - train_count - 1)
+        test_count = count - train_count - val_count
         train_keys.update(shuffled[:train_count])
-        test_keys.update(shuffled[train_count:])
+        val_keys.update(shuffled[train_count:train_count + val_count])
+        test_keys.update(shuffled[train_count + val_count:])
         print(
-            f"{condition}: shared_identities={len(shuffled)}, "
-            f"train={train_count}, test={len(shuffled) - train_count}"
+            f"{condition}: shared_identities={count}, "
+            f"train={train_count}, val={val_count}, test={test_count}"
         )
 
     train = [row for row in rows if key(row) in train_keys]
+    val_query = [
+        row
+        for row in rows
+        if key(row) in val_keys and row["view_group"] == "after"
+    ]
+    val_gallery = [
+        row
+        for row in rows
+        if key(row) in val_keys and row["view_group"] == "before"
+    ]
     query = [
         row
         for row in rows
@@ -115,6 +143,8 @@ def main() -> int:
     ]
 
     write_csv(output_root / "train.csv", train)
+    write_csv(output_root / "val_query.csv", val_query)
+    write_csv(output_root / "val_gallery.csv", val_gallery)
     write_csv(output_root / "query.csv", query)
     write_csv(output_root / "gallery.csv", gallery)
 
@@ -122,6 +152,8 @@ def main() -> int:
     print(f"Output root: {output_root}")
     print(f"Shared identities: {len(shared_keys)}")
     print_stats("train", train)
+    print_stats("val_query", val_query)
+    print_stats("val_gallery", val_gallery)
     print_stats("query", query)
     print_stats("gallery", gallery)
     return 0
