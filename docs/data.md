@@ -254,3 +254,16 @@ nohup python -u baselines/torchreid/evaluate.py \
   --output results/resnet50_finetuned/eval.json \
   > resnet50_eval_finetuned.log 2>&1 &
 ```
+
+Run three Torchreid baselines and aggregate results:
+
+```bash
+nohup python -u baselines/torchreid/run_all.py \
+  --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
+  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
+  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
+  --results-root results/baselines \
+  --epochs 20 \
+  --batch-size 64 \
+  > run_all_baselines.log 2>&1 &
+```
