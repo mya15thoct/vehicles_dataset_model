@@ -50,6 +50,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--eval-every", type=int, default=5)
+    parser.add_argument("--patience", type=int, default=3)
+    parser.add_argument("--min-delta", type=float, default=0.001)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--lr", type=float, default=3e-4)
@@ -163,6 +165,10 @@ def train_command(args: argparse.Namespace, model_name: str, output_dir: Path) -
         str(args.epochs),
         "--eval-every",
         str(args.eval_every),
+        "--patience",
+        str(args.patience),
+        "--min-delta",
+        str(args.min_delta),
         "--batch-size",
         str(args.batch_size),
         "--num-workers",

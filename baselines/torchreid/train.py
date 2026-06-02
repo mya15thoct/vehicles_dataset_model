@@ -27,6 +27,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="results/osnet_finetuned")
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--eval-every", type=int, default=5)
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=3,
+        help="Early-stopping patience in validation checks. 0 disables early stopping.",
+    )
+    parser.add_argument(
+        "--min-delta",
+        type=float,
+        default=0.001,
+        help="Minimum validation mAP improvement required to reset patience.",
+    )
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--lr", type=float, default=3e-4)
@@ -263,6 +275,8 @@ def main() -> int:
         "num_train_identities": len(label_to_index),
         "epochs": args.epochs,
         "eval_every": args.eval_every,
+        "patience": args.patience,
+        "min_delta": args.min_delta,
         "batch_size": args.batch_size,
         "lr": args.lr,
         "weight_decay": args.weight_decay,
@@ -277,7 +291,9 @@ def main() -> int:
 
     best_map = -1.0
     best_epoch = None
+    stale_checks = 0
     val_history = []
+    should_stop = False
     for epoch in range(1, args.epochs + 1):
         model.train()
         total_loss = 0.0
@@ -327,12 +343,30 @@ def main() -> int:
                 f"mAP={metrics['mAP']:.4f}",
                 flush=True,
             )
-            if metrics["mAP"] > best_map:
+            if metrics["mAP"] > best_map + args.min_delta:
                 best_map = metrics["mAP"]
                 best_epoch = epoch
+                stale_checks = 0
                 save_checkpoint(output_dir / "model_best.pth", model, args, label_to_index)
                 (output_dir / "best_val.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
                 print(f"Saved new best checkpoint at epoch {epoch}", flush=True)
+            else:
+                stale_checks += 1
+                print(
+                    f"No validation mAP improvement >= {args.min_delta}. "
+                    f"stale_checks={stale_checks}/{args.patience}",
+                    flush=True,
+                )
+                if args.patience > 0 and stale_checks >= args.patience:
+                    should_stop = True
+                    print(
+                        f"Early stopping at epoch {epoch}. "
+                        f"Best epoch={best_epoch}, best mAP={best_map:.4f}",
+                        flush=True,
+                    )
+
+        if should_stop:
+            break
 
     print(f"Saved: {output_dir / 'model_last.pth'}", flush=True)
     if use_validation:

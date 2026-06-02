@@ -35,6 +35,8 @@ nohup python -u baselines/torchreid/train.py \
   --output-dir results/osnet_finetuned \
   --epochs 20 \
   --eval-every 5 \
+  --patience 3 \
+  --min-delta 0.001 \
   --batch-size 64 \
   > osnet_train.log 2>&1 &
 ```
@@ -60,6 +62,8 @@ nohup python -u baselines/torchreid/train.py \
   --output-dir results/resnet50_finetuned \
   --epochs 20 \
   --eval-every 5 \
+  --patience 3 \
+  --min-delta 0.001 \
   --batch-size 64 \
   > resnet50_train.log 2>&1 &
 ```
@@ -98,6 +102,8 @@ nohup python -u baselines/torchreid/run_all.py \
   --results-root results/baselines \
   --epochs 20 \
   --eval-every 5 \
+  --patience 3 \
+  --min-delta 0.001 \
   --batch-size 64 \
   > run_all_baselines.log 2>&1 &
 ```
@@ -116,6 +122,8 @@ nohup python -u baselines/torchreid/run_all.py \
   --models osnet_x1_0 resnet50 mobilenetv2_x1_0 \
   --epochs 20 \
   --eval-every 5 \
+  --patience 3 \
+  --min-delta 0.001 \
   --batch-size 64 \
   > run_custom_baselines.log 2>&1 &
 ```
