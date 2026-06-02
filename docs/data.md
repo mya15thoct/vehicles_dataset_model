@@ -198,6 +198,18 @@ nohup python -u scripts/build_train_test_split.py \
   > build_train_test_split.log 2>&1 &
 ```
 
+Audit the split for data leakage:
+
+```bash
+python scripts/audit_reid_splits.py \
+  --train /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
+  --val-query /mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv \
+  --val-gallery /mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv \
+  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
+  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
+  --output results/split_audit.json
+```
+
 Run the first pretrained OSNet sanity-check baseline:
 
 ```bash
