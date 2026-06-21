@@ -16,9 +16,9 @@ The full dataset is planned to contain four conditions:
 | Condition | Annotation Status | Views |
 | --- | --- | --- |
 | `morning_norain` | Completed | `before`, `after` |
-| `morning_rain` | In progress | `before`, `after` |
+| `morning_rain` | Completed | `before`, `after` |
 | `evening_norain` | Completed | `before`, `after` |
-| `evening_rain` | In progress | `before`, `after` |
+| `evening_rain` | Completed | `before`, `after` |
 
 Frame images are stored on the server at:
 
@@ -42,10 +42,8 @@ Each XML file should be paired with the image folder that has the same base name
 | `annotation/evening_norain_after.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_norain_after/` |
 | `annotation/morning_rain_before.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/morning_rain_before/` |
 | `annotation/morning_rain_after.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/morning_rain_after/` |
-| `annotation/evening_rain_before1.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_before1/` |
-| `annotation/evening_rain_before2.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_before2/` |
-| `annotation/evening_rain_after1.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_after1/` |
-| `annotation/evening_rain_after2.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_after2/` |
+| `annotation/evening_rain_before.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_before/` |
+| `annotation/evening_rain_after.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_after/` |
 
 ## Annotation Format
 

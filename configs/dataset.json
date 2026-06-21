@@ -32,7 +32,7 @@
     },
     {
       "name": "morning_rain",
-      "status": "in_progress",
+      "status": "completed",
       "views": {
         "before": {
           "annotation": "morning_rain_before.xml",
@@ -46,23 +46,15 @@
     },
     {
       "name": "evening_rain",
-      "status": "in_progress",
+      "status": "completed",
       "views": {
-        "before1": {
-          "annotation": "evening_rain_before1.xml",
-          "images": "evening_rain_before1"
+        "before": {
+          "annotation": "evening_rain_before.xml",
+          "images": "evening_rain_before"
         },
-        "before2": {
-          "annotation": "evening_rain_before2.xml",
-          "images": "evening_rain_before2"
-        },
-        "after1": {
-          "annotation": "evening_rain_after1.xml",
-          "images": "evening_rain_after1"
-        },
-        "after2": {
-          "annotation": "evening_rain_after2.xml",
-          "images": "evening_rain_after2"
+        "after": {
+          "annotation": "evening_rain_after.xml",
+          "images": "evening_rain_after"
         }
       }
     }
