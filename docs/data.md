@@ -1,53 +1,45 @@
-# Dataset Description and Statistics
+# Dataset Notes
 
-## Overview
+This file summarizes the current validated state of the dataset used by this repository.
 
-This dataset is designed for vehicle re-identification across two synchronized camera views:
+## Dataset Location
 
-- `before`: front-side/front-view camera
-- `after`: rear-side/back-view camera
+Public dataset:
 
-The same physical vehicle appearing in both views is assigned the same identity using the annotation attribute `id`.
+```text
+https://huggingface.co/datasets/mya15thoct/multi-weather_traffic_data
+```
 
-## Conditions
-
-The full dataset is planned to contain four conditions:
-
-| Condition | Annotation Status | Views |
-| --- | --- | --- |
-| `morning_norain` | Completed | `before`, `after` |
-| `morning_rain` | Completed | `before`, `after` |
-| `evening_norain` | Completed | `before`, `after` |
-| `evening_rain` | Completed | `before`, `after` |
-
-Frame images are stored on the server at:
+Local server example:
 
 ```text
 /mnt/ngan/vehicles/multi-weather_traffic_data
 ```
 
-Annotation XML files are stored in this code repository at:
+Annotation copies used by the code repository:
 
 ```text
-annotation
+annotation/
 ```
 
-Each XML file should be paired with the image folder that has the same base name.
+## Conditions
 
-| Annotation file | Server image folder |
-| --- | --- |
-| `annotation/morning_norain_before.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/morning_norain_before/` |
-| `annotation/morning_norain_after.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/morning_norain_after/` |
-| `annotation/evening_norain_before.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_norain_before/` |
-| `annotation/evening_norain_after.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_norain_after/` |
-| `annotation/morning_rain_before.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/morning_rain_before/` |
-| `annotation/morning_rain_after.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/morning_rain_after/` |
-| `annotation/evening_rain_before.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_before/` |
-| `annotation/evening_rain_after.xml` | `/mnt/ngan/vehicles/multi-weather_traffic_data/evening_rain_after/` |
+| Condition | Views | Status |
+| --- | --- | --- |
+| `morning_norain` | `before`, `after` | Completed |
+| `evening_norain` | `before`, `after` | Completed |
+| `morning_rain` | `before`, `after` | Completed |
+| `evening_rain` | `before`, `after` | Completed |
 
 ## Annotation Format
 
-Annotations are stored in CVAT XML format. Each frame contains vehicle bounding boxes:
+Annotations are stored in CVAT XML format. Each vehicle box contains:
+
+- `box.label`: vehicle class
+- `xtl`, `ytl`, `xbr`, `ybr`: bounding box coordinates
+- `attribute name="id"`: vehicle identity ID
+
+Example:
 
 ```xml
 <image id="1" name="frame_000001.jpg" width="1080" height="1920">
@@ -57,244 +49,83 @@ Annotations are stored in CVAT XML format. Each frame contains vehicle bounding 
 </image>
 ```
 
-Important fields:
-
-| Field | Meaning |
-| --- | --- |
-| `image.name` | Frame filename |
-| `box.label` | Vehicle class |
-| `xtl`, `ytl`, `xbr`, `ybr` | Bounding box coordinates |
-| `attribute id` | Vehicle identity |
-
-Current vehicle classes:
-
-```text
-motorbike, car, truck, Bus
-```
-
-For Re-ID, the key identity rule is:
+Identity rule:
 
 ```text
 same physical vehicle  -> same id
 different vehicle      -> different id
 ```
 
-## Current Annotation Files
-
-Currently completed local XML files:
+Vehicle classes:
 
 ```text
-morning_norain_before.xml
-morning_norain_after.xml
-evening_norain_before.xml
-evening_norain_after.xml
+bus, car, motorbike, truck
 ```
 
-## Current Statistics
+## Current Validated Statistics
 
-| XML file | Frames | Boxes | Unique IDs |
-| --- | ---: | ---: | ---: |
-| `morning_norain_before.xml` | 3019 | 9448 | 371 |
-| `morning_norain_after.xml` | 3305 | 7640 | 343 |
-| `evening_norain_before.xml` | 4597 | 10798 | 567 |
-| `evening_norain_after.xml` | 5037 | 10631 | 537 |
+| Condition | View | Frames | Boxes | IDs |
+| --- | --- | ---: | ---: | ---: |
+| `morning_norain` | `before` | 4,923 | 12,784 | 628 |
+| `morning_norain` | `after` | 5,207 | 10,785 | 571 |
+| `evening_norain` | `before` | 4,597 | 10,798 | 567 |
+| `evening_norain` | `after` | 5,037 | 10,631 | 537 |
+| `morning_rain` | `before` | 6,671 | 18,445 | 669 |
+| `morning_rain` | `after` | 6,700 | 16,074 | 618 |
+| `evening_rain` | `before` | 4,561 | 12,807 | 635 |
+| `evening_rain` | `after` | 4,558 | 8,628 | 581 |
+| **Total** |  | **42,254** | **100,952** |  |
+
+## Class Distribution
+
+| Class | Boxes | Percentage |
+| --- | ---: | ---: |
+| `truck` | 48,801 | 48.34% |
+| `motorbike` | 30,360 | 30.07% |
+| `car` | 19,439 | 19.26% |
+| `bus` | 2,352 | 2.33% |
+| **Total** | **100,952** | **100.00%** |
+
+The dataset is class-imbalanced, especially for `bus`. This should be reported transparently in the paper and considered when interpreting detection/classification results.
+
+## Condition Distribution
+
+| Condition | Boxes | Percentage |
+| --- | ---: | ---: |
+| `morning_norain` | 23,569 | 23.35% |
+| `evening_norain` | 21,429 | 21.23% |
+| `morning_rain` | 34,519 | 34.19% |
+| `evening_rain` | 21,435 | 21.23% |
+| **Total** | **100,952** | **100.00%** |
+
+## View Distribution
+
+| View | Boxes | Percentage |
+| --- | ---: | ---: |
+| `before` | 54,834 | 54.32% |
+| `after` | 46,118 | 45.68% |
+| **Total** | **100,952** | **100.00%** |
 
 ## Cross-View Identity Coverage
 
-| Condition | Before IDs | After IDs | Shared IDs | Before-only IDs | After-only IDs |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `morning_norain` | 371 | 343 | 343 | 28 | 0 |
-| `evening_norain` | 567 | 537 | 537 | 30 | 0 |
+| Condition | Before IDs | After IDs | Shared IDs | Before-only IDs | After-only IDs | Label mismatches |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `morning_norain` | 628 | 571 | 571 | 57 | 0 | 0 |
+| `evening_norain` | 567 | 537 | 537 | 30 | 0 | 0 |
+| `morning_rain` | 669 | 618 | 618 | 51 | 0 | 0 |
+| `evening_rain` | 635 | 581 | 581 | 54 | 0 | 0 |
 
-This means every vehicle ID in the `after` view currently has a matching ID in the `before` view.
+Every identity in the `after` view has a corresponding identity in the `before` view. Some vehicles appear only in the `before` view; these are kept for detection/classification and excluded from query-gallery matching.
 
-## Removed Label Issues
+## Validation Status
 
-The following inconsistent IDs were removed from the XML annotation files.
-After removal, no shared ID has a different class label between `before` and `after` in the currently completed conditions.
-
-### `morning_norain`
-
-| Removed ID | Previous `before` label/count/frames | Previous `after` label/count/frames |
-| ---: | --- | --- |
-| 314 | car, 15 boxes, frames 2590-2604 | motorbike, 27 boxes, frames 2843-2869 |
-| 256 | car, 42 boxes, frames 2164-2205 | motorbike, 28 boxes, frames 2414-2441 |
-| 243 | motorbike, 14 boxes, frames 1999-2012 | car, 18 boxes, frames 2196-2213 |
-| 138 | car, 16 boxes, frames 986-1001 | motorbike, 17 boxes, frames 1095-1111 |
-
-### `evening_norain`
-
-| Removed ID | Previous `before` label/count/frames | Previous `after` label/count/frames |
-| ---: | --- | --- |
-| 320 | car, 18 boxes, frames 2320-2337 | motorbike, 17 boxes, frames 2587-2603 |
-| 32 | car, 16 boxes, frames 351-366 | truck, 11 boxes, frames 417-427 |
-| 1 | truck, 30 boxes + car, 20 boxes, frames 0-2410 | truck, 47 boxes + motorbike, 12 boxes, frames 171-1579 |
-
-For ID 1 in `evening_norain`, the same ID appeared with multiple labels inside the same view, so it was probably an ID reuse or merge error.
-
-## Planned Benchmark Setup
-
-Recommended Re-ID setup:
+Current validation checks:
 
 ```text
-query   = after view crops
-gallery = before view crops
+missing_id = 0
+invalid_boxes = 0
+label_mismatch = 0
+after_only_ids = 0
 ```
 
-Suggested metrics:
-
-```text
-Rank-1, Rank-5, mAP
-```
-
-Since the main contribution is the dataset, the paper can evaluate existing Re-ID baselines instead of proposing a new model.
-
-## Current Pipeline Files
-
-The initial data pipeline files are:
-
-```text
-configs/dataset.json
-scripts/validate_annotations.py
-scripts/export_reid_crops.py
-scripts/build_reid_split.py
-scripts/build_train_test_split.py
-```
-
-Validate the completed local XML working copies:
-
-```bash
-python scripts/validate_annotations.py
-```
-
-Export Re-ID crops on the server:
-
-```bash
-python scripts/export_reid_crops.py \
-  --config configs/dataset.json \
-  --completed-only \
-  --output-root /mnt/ngan/vehicles/reid_crops
-```
-
-Build query/gallery CSV files:
-
-```bash
-python scripts/build_reid_split.py \
-  --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
-  --output-root /mnt/ngan/vehicles/reid_benchmark
-```
-
-Build identity-disjoint train/val/test split for the main paper benchmark:
-
-```bash
-nohup python -u scripts/build_train_test_split.py \
-  --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
-  --output-root /mnt/ngan/vehicles/reid_benchmark_identity \
-  --train-ratio 0.7 \
-  --val-ratio 0.1 \
-  --seed 42 \
-  > build_train_test_split.log 2>&1 &
-```
-
-Audit the split for data leakage:
-
-```bash
-python scripts/audit_reid_splits.py \
-  --train /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
-  --val-query /mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv \
-  --val-gallery /mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv \
-  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
-  --output results/split_audit.json
-```
-
-Run the first pretrained OSNet sanity-check baseline:
-
-```bash
-nohup python -u baselines/osnet/evaluate.py \
-  --query /mnt/ngan/vehicles/reid_benchmark/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark/gallery.csv \
-  --output results/osnet_pretrained.json \
-  > osnet_eval.log 2>&1 &
-```
-
-Train/fine-tune OSNet for the main benchmark:
-
-```bash
-nohup python -u baselines/torchreid/train.py \
-  --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
-  --val-query /mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv \
-  --val-gallery /mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv \
-  --model-name osnet_x1_0 \
-  --output-dir results/osnet_finetuned \
-  --epochs 20 \
-  --eval-every 5 \
-  --patience 3 \
-  --min-delta 0.001 \
-  --batch-size 64 \
-  > osnet_train.log 2>&1 &
-```
-
-Evaluate fine-tuned OSNet:
-
-```bash
-nohup python -u baselines/torchreid/evaluate.py \
-  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
-  --model-name osnet_x1_0 \
-  --weights results/osnet_finetuned/model_best.pth \
-  --output results/osnet_finetuned/eval.json \
-  > osnet_eval_finetuned.log 2>&1 &
-```
-
-Train/fine-tune ResNet50:
-
-```bash
-nohup python -u baselines/torchreid/train.py \
-  --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
-  --val-query /mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv \
-  --val-gallery /mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv \
-  --model-name resnet50 \
-  --output-dir results/resnet50_finetuned \
-  --epochs 20 \
-  --eval-every 5 \
-  --patience 3 \
-  --min-delta 0.001 \
-  --batch-size 64 \
-  > resnet50_train.log 2>&1 &
-```
-
-Evaluate fine-tuned ResNet50:
-
-```bash
-nohup python -u baselines/torchreid/evaluate.py \
-  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
-  --model-name resnet50 \
-  --weights results/resnet50_finetuned/model_best.pth \
-  --output results/resnet50_finetuned/eval.json \
-  > resnet50_eval_finetuned.log 2>&1 &
-```
-
-Run the default Torchreid baseline set and aggregate results:
-
-```text
-osnet_x1_0, osnet_ain_x1_0, osnet_ibn_x1_0, resnet50, resnet101, mobilenetv2_x1_0
-```
-
-```bash
-nohup python -u baselines/torchreid/run_all.py \
-  --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
-  --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
-  --val-query /mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv \
-  --val-gallery /mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv \
-  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
-  --results-root results/baselines \
-  --epochs 20 \
-  --eval-every 5 \
-  --patience 3 \
-  --min-delta 0.001 \
-  --batch-size 64 \
-  > run_all_baselines.log 2>&1 &
-```
+Known inconsistent IDs found during annotation cleaning were removed before final validation.
