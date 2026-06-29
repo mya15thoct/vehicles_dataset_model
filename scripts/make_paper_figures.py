@@ -355,6 +355,39 @@ def draw_boxes_on_image(
     return panel
 
 
+def draw_boxes_on_resized_image(image_path: Path, boxes: list[dict], output_width: int, max_boxes: int) -> Image.Image:
+    label_font = load_font(20, bold=True)
+    with Image.open(image_path) as image:
+        image = image.convert("RGB")
+        scale = output_width / image.width
+        output_height = max(1, int(round(image.height * scale)))
+        image = image.resize((output_width, output_height), Image.Resampling.LANCZOS)
+
+    draw = ImageDraw.Draw(image)
+    sorted_boxes = sorted(
+        boxes,
+        key=lambda item: (item["xbr"] - item["xtl"]) * (item["ybr"] - item["ytl"]),
+        reverse=True,
+    )[:max_boxes]
+
+    for box in sorted_boxes:
+        label = box["label"]
+        color = CLASS_COLORS.get(label, (120, 120, 120))
+        x1 = int(round(box["xtl"] * scale))
+        y1 = int(round(box["ytl"] * scale))
+        x2 = int(round(box["xbr"] * scale))
+        y2 = int(round(box["ybr"] * scale))
+        draw.rectangle((x1, y1, x2, y2), outline=color, width=3)
+        text = f"{pretty_class(label)} #{box['id']}" if box["id"] is not None else pretty_class(label)
+        tw, th = text_size(draw, text, label_font)
+        label_x = min(max(0, x1), max(0, output_width - tw - 10))
+        label_y = max(0, y1 - th - 7)
+        draw.rounded_rectangle((label_x, label_y, label_x + tw + 10, label_y + th + 7), radius=4, fill=color)
+        draw.text((label_x + 5, label_y + 2), text, fill=(255, 255, 255), font=label_font)
+
+    return image
+
+
 def make_grid(images: list[Image.Image], rows: int, cols: int, gap: int = 18, bg=(255, 255, 255)) -> Image.Image:
     if not images:
         raise ValueError("No images to compose")
@@ -598,25 +631,16 @@ def make_annotation_candidate_exports(
             cards = []
             for rank, record in enumerate(records, start=1):
                 image_path = image_path_for(view_data, record)
-                annotated = draw_boxes_on_image(
+                annotated = draw_boxes_on_resized_image(
                     image_path,
                     record["boxes"],
-                    output_width=thumb_width - 16,
-                    output_height=thumb_height - 16,
+                    output_width=thumb_width,
                     max_boxes=max_boxes,
-                )
-                card = make_caption_card(
-                    annotated,
-                    title=f"{condition_name} / {view}",
-                    subtitle=f"{record['frame_name']} | boxes={len(record['boxes'])}",
-                    width=thumb_width,
-                    height=thumb_height,
-                    accent=CONDITION_COLORS.get(condition_name, ACCENT),
                 )
                 safe_frame = Path(record["frame_name"]).stem
                 image_name = f"{condition_name}_{view}_{rank:02d}_{safe_frame}.jpg"
                 image_out = candidate_root / image_name
-                save_image(card, image_out)
+                save_image(annotated, image_out)
 
                 item = {
                     "figure": "annotation_candidates",
@@ -631,7 +655,7 @@ def make_annotation_candidate_exports(
                 metadata.append(item)
 
                 if rank <= sheet_count:
-                    cards.append(card)
+                    cards.append(annotated)
 
             if cards:
                 sheet = make_horizontal_contact_sheet(

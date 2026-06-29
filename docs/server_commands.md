@@ -178,7 +178,7 @@ docs/figures/figure_statistics.json
 docs/figures/candidates/annotation/
 ```
 
-The candidate folder contains multiple annotated-frame options per condition/view. Use these files to manually pick cleaner examples for the final paper figure.
+The candidate folder contains multiple clean annotated-frame images per condition/view. Individual candidate images have no title card, caption, or white frame; the `*_candidate_sheet.jpg` files are only quick previews.
 
 ## Information To Send Back To The Writer
 
