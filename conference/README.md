@@ -2,6 +2,17 @@
 
 This folder records the experiment setup for the shorter Scopus-indexed conference version.
 
+## Files
+
+| File | Purpose |
+| --- | --- |
+| `README.md` | Pipeline commands and contribution wording |
+| `build_subset.py` | Build the condition-balanced 50% conference subset |
+| `paper_writing_notes.md` | Paper-ready wording for title, abstract, contributions, sections |
+| `conference_statistics.md` | Split statistics, leakage audit, and tables for the paper |
+| `result_tables.md` | Tables to fill after baseline training finishes |
+| `reviewer_positioning.md` | What to claim and what to avoid for conference vs journal |
+
 ## Conference Scope
 
 The conference paper should focus on:
@@ -130,3 +141,5 @@ The main contributions of this work are threefold:
 
 3. We benchmark representative deep Re-ID models on a condition-balanced subset of 1,200 cross-view vehicle identities and analyze the impact of rain and time-of-day variation on matching performance.
 ```
+
+Do not list dataset release as a conference contribution. The collected/annotated data should be described in the experimental setup section only.

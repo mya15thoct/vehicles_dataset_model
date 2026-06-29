@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 import sys
 import xml.etree.ElementTree as ET
@@ -71,9 +72,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-root", default=None)
     parser.add_argument("--annotation-root", default=None)
     parser.add_argument("--output-root", default="docs/figures")
-    parser.add_argument("--max-boxes", type=int, default=14)
+    parser.add_argument("--max-boxes", type=int, default=8)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--thumb-width", type=int, default=420)
+    parser.add_argument("--thumb-width", type=int, default=360)
     parser.add_argument("--crop-size", type=int, default=280)
     return parser.parse_args()
 
@@ -368,12 +369,65 @@ def make_two_view_table(
     return canvas
 
 
+def make_caption_card(
+    image: Image.Image,
+    title: str,
+    subtitle: str,
+    width: int,
+    height: int,
+    accent: tuple[int, int, int],
+) -> Image.Image:
+    caption_h = 68
+    card = Image.new("RGB", (width, height + caption_h), CARD_BG)
+    draw = ImageDraw.Draw(card)
+    title_font = load_font(17, bold=True)
+    subtitle_font = load_font(13)
+    draw.rounded_rectangle((0, 0, card.width - 1, card.height - 1), radius=14, fill=CARD_BG, outline=GRID, width=1)
+    draw.rounded_rectangle((14, 13, 22, 44), radius=4, fill=accent)
+    draw.text((32, 10), title, fill=INK, font=title_font)
+    draw.text((32, 34), subtitle, fill=MUTED, font=subtitle_font)
+    fitted = fit_image(image, width - 16, height - 16, fill=CARD_BG)
+    card.paste(fitted, (8, caption_h + 8))
+    return card
+
+
+def make_horizontal_contact_sheet(
+    cards: list[Image.Image],
+    title: str,
+    subtitle: str,
+    cols: int = 4,
+    gap: int = 16,
+) -> Image.Image:
+    if not cards:
+        raise ValueError("No cards to compose")
+    rows = math.ceil(len(cards) / cols)
+    card_w = max(card.width for card in cards)
+    card_h = max(card.height for card in cards)
+    margin = 28
+    title_h = 82
+    width = margin * 2 + cols * card_w + (cols - 1) * gap
+    height = margin + title_h + rows * card_h + (rows - 1) * gap + margin
+    canvas = Image.new("RGB", (width, height), PAPER_BG)
+    draw = ImageDraw.Draw(canvas)
+    title_font = load_font(29, bold=True)
+    subtitle_font = load_font(16)
+    draw.text((margin, margin - 4), title, fill=INK, font=title_font)
+    draw.text((margin, margin + 34), subtitle, fill=MUTED, font=subtitle_font)
+    y0 = margin + title_h
+    for idx, card in enumerate(cards):
+        row = idx // cols
+        col = idx % cols
+        x = margin + col * (card_w + gap)
+        y = y0 + row * (card_h + gap)
+        canvas.paste(card, (x, y))
+    return canvas
+
+
 def make_dataset_overview(dataset: list[dict], output_root: Path, thumb_width: int) -> list[dict]:
-    rows = []
+    cards = []
     metadata = []
-    thumb_height = int(thumb_width * 1.38)
+    thumb_height = int(thumb_width * 1.25)
     for condition in dataset:
-        row = {"condition": condition["name"]}
         for view in VIEW_ORDER:
             view_data = condition["views"][view]
             record = choose_overview_record(view_data)
@@ -381,8 +435,17 @@ def make_dataset_overview(dataset: list[dict], output_root: Path, thumb_width: i
                 raise RuntimeError(f"No available overview image for {condition['name']} {view}")
             path = image_path_for(view_data, record)
             with Image.open(path) as image:
-                thumb = frame_panel(image.convert("RGB"), thumb_width, thumb_height)
-            row[view] = thumb
+                thumb = image.convert("RGB")
+            cards.append(
+                make_caption_card(
+                    thumb,
+                    title=pretty_condition(condition["name"]),
+                    subtitle=f"{pretty_view(view)} | {record['frame_name']}",
+                    width=thumb_width,
+                    height=thumb_height,
+                    accent=CONDITION_COLORS.get(condition["name"], ACCENT),
+                )
+            )
             metadata.append(
                 {
                     "figure": "dataset_overview",
@@ -392,13 +455,11 @@ def make_dataset_overview(dataset: list[dict], output_root: Path, thumb_width: i
                     "boxes": len(record["boxes"]),
                 }
             )
-        rows.append(row)
-    figure = make_two_view_table(
-        rows,
-        cell_width=thumb_width,
-        cell_height=thumb_height,
+    figure = make_horizontal_contact_sheet(
+        cards,
         title="Dataset overview",
-        subtitle="Representative frames across weather/time conditions and synchronized camera views",
+        subtitle="Representative frames across four weather/time conditions and two synchronized views",
+        cols=4,
     )
     path = output_root / "figure_01_dataset_overview.jpg"
     save_image(figure, path)
@@ -407,23 +468,32 @@ def make_dataset_overview(dataset: list[dict], output_root: Path, thumb_width: i
 
 
 def make_annotation_examples(dataset: list[dict], output_root: Path, thumb_width: int, max_boxes: int) -> list[dict]:
-    rows = []
+    cards = []
     metadata = []
-    thumb_height = int(thumb_width * 1.38)
+    thumb_height = int(thumb_width * 1.25)
     for condition in dataset:
-        row = {"condition": condition["name"]}
         for view in VIEW_ORDER:
             view_data = condition["views"][view]
             record = choose_annotation_record(view_data)
             if record is None:
                 raise RuntimeError(f"No annotation example for {condition['name']} {view}")
             path = image_path_for(view_data, record)
-            row[view] = draw_boxes_on_image(
+            annotated = draw_boxes_on_image(
                 path,
                 record["boxes"],
-                output_width=thumb_width - 18,
-                output_height=thumb_height - 18,
+                output_width=thumb_width - 16,
+                output_height=thumb_height - 16,
                 max_boxes=max_boxes,
+            )
+            cards.append(
+                make_caption_card(
+                    annotated,
+                    title=pretty_condition(condition["name"]),
+                    subtitle=f"{pretty_view(view)} | {record['frame_name']}",
+                    width=thumb_width,
+                    height=thumb_height,
+                    accent=CONDITION_COLORS.get(condition["name"], ACCENT),
+                )
             )
             metadata.append(
                 {
@@ -435,13 +505,11 @@ def make_annotation_examples(dataset: list[dict], output_root: Path, thumb_width
                     "shown_boxes": min(max_boxes, len(record["boxes"])),
                 }
             )
-        rows.append(row)
-    figure = make_two_view_table(
-        rows,
-        cell_width=thumb_width,
-        cell_height=thumb_height,
+    figure = make_horizontal_contact_sheet(
+        cards,
         title="Annotation examples",
-        subtitle="Bounding boxes show class labels and cross-view identity IDs",
+        subtitle="Bounding boxes show vehicle class labels and cross-view identity IDs",
+        cols=4,
     )
     path = output_root / "figure_02_annotation_examples.jpg"
     save_image(figure, path)
