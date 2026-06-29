@@ -13,6 +13,7 @@ This folder contains working notes for preparing a dataset paper.
 | `q2_checklist.md` | Submission-readiness checklist |
 | `server_commands.md` | Commands to collect final results from the server |
 | `figures/` | Generated paper figures after running `scripts/make_paper_figures.py` |
+| `../conference/` | Conference-specific subset and training pipeline |
 
 ## Current Priority
 
