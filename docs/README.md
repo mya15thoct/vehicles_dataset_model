@@ -6,6 +6,7 @@ This folder contains working notes for preparing a dataset paper.
 | --- | --- |
 | `data.md` | Current dataset notes and validation statistics |
 | `dataset_statistics.md` | Paper-ready statistics tables |
+| `reid_split_statistics.md` | Final Re-ID train/val/test split and leakage audit statistics |
 | `paper_brief.md` | Dataset story, contributions, and positioning |
 | `experiment_plan.md` | Recommended benchmarks and result tables |
 | `paper_template.md` | Scopus-style paper outline and writing template |

@@ -22,7 +22,7 @@ This checklist is designed for a dataset paper targeting a Scopus Q2-level venue
 - [x] Identity-disjoint split script.
 - [x] Leakage audit script.
 - [x] Baseline training/evaluation scripts.
-- [ ] Final split CSV files archived or reproducible by seed.
+- [x] Final split CSV files archived or reproducible by seed.
 - [ ] Final baseline results archived.
 - [ ] Environment/package versions documented.
 
@@ -52,7 +52,7 @@ This checklist is designed for a dataset paper targeting a Scopus Q2-level venue
 - [x] Identity-disjoint split design.
 - [x] Query/gallery direction defined.
 - [x] Leakage audit script available.
-- [ ] Final audit output included in supplementary or repository.
+- [x] Final audit output included in supplementary or repository.
 - [ ] Baselines trained with validation-based model selection.
 - [ ] Same split used for all models.
 - [ ] Per-condition evaluation performed.

@@ -166,6 +166,10 @@ Expected outputs:
 docs/figures/figure_01_dataset_overview.jpg
 docs/figures/figure_02_annotation_examples.jpg
 docs/figures/figure_03_dataset_statistics.png
+docs/figures/figure_03a_class_distribution.png
+docs/figures/figure_03b_condition_distribution.png
+docs/figures/figure_03c_view_distribution.png
+docs/figures/figure_03d_shared_identities.png
 docs/figures/figure_04_cross_view_positive_pairs.jpg
 docs/figures/figure_metadata.json
 docs/figures/figure_statistics.json

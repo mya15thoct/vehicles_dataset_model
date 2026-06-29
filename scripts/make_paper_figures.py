@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import random
 import sys
 import xml.etree.ElementTree as ET
@@ -18,11 +17,49 @@ except ImportError as exc:  # pragma: no cover
     raise SystemExit("Pillow is required: pip install pillow") from exc
 
 
+PAPER_BG = (248, 249, 250)
+CARD_BG = (255, 255, 255)
+INK = (25, 31, 40)
+MUTED = (91, 99, 112)
+GRID = (222, 226, 232)
+ACCENT = (36, 95, 145)
+
 CLASS_COLORS = {
-    "bus": (230, 97, 1),
-    "car": (50, 136, 189),
-    "motorbike": (102, 189, 99),
-    "truck": (213, 62, 79),
+    "bus": (215, 103, 33),
+    "car": (42, 123, 189),
+    "motorbike": (66, 154, 93),
+    "truck": (196, 67, 74),
+}
+
+CONDITION_COLORS = {
+    "morning_norain": (64, 133, 184),
+    "evening_norain": (117, 108, 182),
+    "morning_rain": (72, 157, 120),
+    "evening_rain": (202, 122, 58),
+}
+
+VIEW_COLORS = {
+    "before": (62, 126, 184),
+    "after": (220, 132, 59),
+}
+
+CONDITION_LABELS = {
+    "morning_norain": "Morning / No Rain",
+    "evening_norain": "Evening / No Rain",
+    "morning_rain": "Morning / Rain",
+    "evening_rain": "Evening / Rain",
+}
+
+VIEW_LABELS = {
+    "before": "Before View",
+    "after": "After View",
+}
+
+CLASS_LABELS = {
+    "bus": "Bus",
+    "car": "Car",
+    "motorbike": "Motorbike",
+    "truck": "Truck",
 }
 
 VIEW_ORDER = ("before", "after")
@@ -55,11 +92,11 @@ def resolve_path(root: Path, name: str, fallback_root: Path) -> Path:
     return path
 
 
-def load_font(size: int) -> ImageFont.ImageFont:
+def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
     candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
     ]
     for candidate in candidates:
         path = Path(candidate)
@@ -71,6 +108,37 @@ def load_font(size: int) -> ImageFont.ImageFont:
 def text_size(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> tuple[int, int]:
     bbox = draw.textbbox((0, 0), text, font=font)
     return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+
+def pretty_condition(name: str) -> str:
+    return CONDITION_LABELS.get(name, name.replace("_", " ").title())
+
+
+def pretty_view(name: str) -> str:
+    return VIEW_LABELS.get(name, name.title())
+
+
+def pretty_class(name: str) -> str:
+    return CLASS_LABELS.get(name, name.replace("_", " ").title())
+
+
+def draw_centered_text(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: tuple[int, int, int] = INK,
+) -> None:
+    tw, th = text_size(draw, text, font)
+    x1, y1, x2, y2 = box
+    draw.text((x1 + (x2 - x1 - tw) // 2, y1 + (y2 - y1 - th) // 2 - 1), text, fill=fill, font=font)
+
+
+def save_image(image: Image.Image, path: Path, quality: int = 95) -> None:
+    save_kwargs = {"dpi": (300, 300)}
+    if path.suffix.lower() in {".jpg", ".jpeg"}:
+        save_kwargs.update({"quality": quality, "subsampling": 0})
+    image.save(path, **save_kwargs)
 
 
 def parse_xml(xml_path: Path) -> list[dict]:
@@ -184,34 +252,34 @@ def fit_image(image: Image.Image, width: int, height: int, fill: tuple[int, int,
     return canvas
 
 
-def add_caption(image: Image.Image, caption: str, font: ImageFont.ImageFont) -> Image.Image:
-    draw = ImageDraw.Draw(image)
-    caption_h = 42
-    canvas = Image.new("RGB", (image.width, image.height + caption_h), (255, 255, 255))
-    canvas.paste(image, (0, caption_h))
-    draw = ImageDraw.Draw(canvas)
-    draw.rectangle((0, 0, image.width, caption_h), fill=(245, 245, 245))
-    tw, th = text_size(draw, caption, font)
-    draw.text(((image.width - tw) // 2, (caption_h - th) // 2 - 1), caption, fill=(20, 20, 20), font=font)
-    return canvas
+def frame_panel(image: Image.Image, width: int, height: int) -> Image.Image:
+    panel = Image.new("RGB", (width, height), CARD_BG)
+    panel_draw = ImageDraw.Draw(panel)
+    panel_draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=12, fill=CARD_BG, outline=GRID, width=1)
+    fitted = fit_image(image, width - 18, height - 18, fill=CARD_BG)
+    panel.paste(fitted, (9, 9))
+    return panel
 
 
 def draw_boxes_on_image(
     image_path: Path,
     boxes: list[dict],
     output_width: int,
+    output_height: int,
     max_boxes: int,
-    caption: str,
 ) -> Image.Image:
-    font = load_font(18)
-    label_font = load_font(15)
+    label_font = load_font(16, bold=True)
     with Image.open(image_path) as image:
         image = image.convert("RGB")
-        scale = output_width / image.width
-        output_height = max(1, int(image.height * scale))
-        image = image.resize((output_width, output_height), Image.Resampling.LANCZOS)
+        scale = min(output_width / image.width, output_height / image.height)
+        new_size = (max(1, int(image.width * scale)), max(1, int(image.height * scale)))
+        image = image.resize(new_size, Image.Resampling.LANCZOS)
 
-    draw = ImageDraw.Draw(image)
+    canvas = Image.new("RGB", (output_width, output_height), CARD_BG)
+    offset_x = (output_width - image.width) // 2
+    offset_y = (output_height - image.height) // 2
+    canvas.paste(image, (offset_x, offset_y))
+    draw = ImageDraw.Draw(canvas)
     sorted_boxes = sorted(
         boxes,
         key=lambda item: (item["xbr"] - item["xtl"]) * (item["ybr"] - item["ytl"]),
@@ -221,19 +289,23 @@ def draw_boxes_on_image(
     for box in sorted_boxes:
         label = box["label"]
         color = CLASS_COLORS.get(label, (120, 120, 120))
-        x1 = int(box["xtl"] * scale)
-        y1 = int(box["ytl"] * scale)
-        x2 = int(box["xbr"] * scale)
-        y2 = int(box["ybr"] * scale)
-        for offset in range(3):
-            draw.rectangle((x1 - offset, y1 - offset, x2 + offset, y2 + offset), outline=color)
-        text = f"{label} #{box['id']}" if box["id"] is not None else label
+        x1 = offset_x + int(box["xtl"] * scale)
+        y1 = offset_y + int(box["ytl"] * scale)
+        x2 = offset_x + int(box["xbr"] * scale)
+        y2 = offset_y + int(box["ybr"] * scale)
+        for line_offset in range(3):
+            draw.rectangle((x1 - line_offset, y1 - line_offset, x2 + line_offset, y2 + line_offset), outline=color)
+        text = f"{pretty_class(label)} #{box['id']}" if box["id"] is not None else pretty_class(label)
         tw, th = text_size(draw, text, label_font)
         label_y = max(0, y1 - th - 6)
-        draw.rectangle((x1, label_y, x1 + tw + 8, label_y + th + 6), fill=color)
+        draw.rounded_rectangle((x1, label_y, x1 + tw + 10, label_y + th + 7), radius=4, fill=color)
         draw.text((x1 + 4, label_y + 2), text, fill=(255, 255, 255), font=label_font)
 
-    return add_caption(image, caption, font)
+    panel = Image.new("RGB", (output_width + 18, output_height + 18), CARD_BG)
+    panel_draw = ImageDraw.Draw(panel)
+    panel_draw.rounded_rectangle((0, 0, panel.width - 1, panel.height - 1), radius=12, fill=CARD_BG, outline=GRID, width=1)
+    panel.paste(canvas, (9, 9))
+    return panel
 
 
 def make_grid(images: list[Image.Image], rows: int, cols: int, gap: int = 18, bg=(255, 255, 255)) -> Image.Image:
@@ -251,12 +323,57 @@ def make_grid(images: list[Image.Image], rows: int, cols: int, gap: int = 18, bg
     return canvas
 
 
+def make_two_view_table(
+    rows: list[dict],
+    cell_width: int,
+    cell_height: int,
+    title: str,
+    subtitle: str,
+) -> Image.Image:
+    margin = 34
+    label_w = 245
+    gap = 16
+    title_h = 74
+    header_h = 52
+    row_h = cell_height + 18
+    width = margin * 2 + label_w + gap + 2 * cell_width + gap
+    height = margin + title_h + header_h + len(rows) * row_h + margin
+    canvas = Image.new("RGB", (width, height), PAPER_BG)
+    draw = ImageDraw.Draw(canvas)
+    title_font = load_font(28, bold=True)
+    subtitle_font = load_font(16)
+    header_font = load_font(19, bold=True)
+    row_font = load_font(18, bold=True)
+
+    draw.text((margin, margin - 2), title, fill=INK, font=title_font)
+    draw.text((margin, margin + 36), subtitle, fill=MUTED, font=subtitle_font)
+
+    y = margin + title_h
+    x_before = margin + label_w + gap
+    x_after = x_before + cell_width + gap
+    draw_centered_text(draw, (x_before, y, x_before + cell_width, y + header_h), "Before view", header_font, INK)
+    draw_centered_text(draw, (x_after, y, x_after + cell_width, y + header_h), "After view", header_font, INK)
+
+    y += header_h
+    for row in rows:
+        condition = row["condition"]
+        color = CONDITION_COLORS.get(condition, ACCENT)
+        draw.rounded_rectangle((margin, y + 9, margin + label_w - 10, y + row_h - 9), radius=12, fill=CARD_BG, outline=GRID, width=1)
+        draw.rounded_rectangle((margin + 16, y + 25, margin + 24, y + row_h - 25), radius=4, fill=color)
+        draw.text((margin + 36, y + row_h // 2 - 14), pretty_condition(condition), fill=INK, font=row_font)
+        canvas.paste(row["before"], (x_before, y + 9))
+        canvas.paste(row["after"], (x_after, y + 9))
+        y += row_h
+
+    return canvas
+
+
 def make_dataset_overview(dataset: list[dict], output_root: Path, thumb_width: int) -> list[dict]:
-    font = load_font(20)
-    thumbs = []
+    rows = []
     metadata = []
-    thumb_height = int(thumb_width * 1.45)
+    thumb_height = int(thumb_width * 1.38)
     for condition in dataset:
+        row = {"condition": condition["name"]}
         for view in VIEW_ORDER:
             view_data = condition["views"][view]
             record = choose_overview_record(view_data)
@@ -264,9 +381,8 @@ def make_dataset_overview(dataset: list[dict], output_root: Path, thumb_width: i
                 raise RuntimeError(f"No available overview image for {condition['name']} {view}")
             path = image_path_for(view_data, record)
             with Image.open(path) as image:
-                thumb = fit_image(image, thumb_width, thumb_height)
-            caption = f"{condition['name']} / {view}"
-            thumbs.append(add_caption(thumb, caption, font))
+                thumb = frame_panel(image.convert("RGB"), thumb_width, thumb_height)
+            row[view] = thumb
             metadata.append(
                 {
                     "figure": "dataset_overview",
@@ -276,31 +392,38 @@ def make_dataset_overview(dataset: list[dict], output_root: Path, thumb_width: i
                     "boxes": len(record["boxes"]),
                 }
             )
-    figure = make_grid(thumbs, rows=len(dataset), cols=2)
+        rows.append(row)
+    figure = make_two_view_table(
+        rows,
+        cell_width=thumb_width,
+        cell_height=thumb_height,
+        title="Dataset overview",
+        subtitle="Representative frames across weather/time conditions and synchronized camera views",
+    )
     path = output_root / "figure_01_dataset_overview.jpg"
-    figure.save(path, quality=95)
+    save_image(figure, path)
     print(f"Saved {path}")
     return metadata
 
 
 def make_annotation_examples(dataset: list[dict], output_root: Path, thumb_width: int, max_boxes: int) -> list[dict]:
-    panels = []
+    rows = []
     metadata = []
+    thumb_height = int(thumb_width * 1.38)
     for condition in dataset:
+        row = {"condition": condition["name"]}
         for view in VIEW_ORDER:
             view_data = condition["views"][view]
             record = choose_annotation_record(view_data)
             if record is None:
                 raise RuntimeError(f"No annotation example for {condition['name']} {view}")
             path = image_path_for(view_data, record)
-            panels.append(
-                draw_boxes_on_image(
-                    path,
-                    record["boxes"],
-                    output_width=thumb_width,
-                    max_boxes=max_boxes,
-                    caption=f"{condition['name']} / {view}",
-                )
+            row[view] = draw_boxes_on_image(
+                path,
+                record["boxes"],
+                output_width=thumb_width - 18,
+                output_height=thumb_height - 18,
+                max_boxes=max_boxes,
             )
             metadata.append(
                 {
@@ -312,9 +435,16 @@ def make_annotation_examples(dataset: list[dict], output_root: Path, thumb_width
                     "shown_boxes": min(max_boxes, len(record["boxes"])),
                 }
             )
-    figure = make_grid(panels, rows=len(dataset), cols=2)
+        rows.append(row)
+    figure = make_two_view_table(
+        rows,
+        cell_width=thumb_width,
+        cell_height=thumb_height,
+        title="Annotation examples",
+        subtitle="Bounding boxes show class labels and cross-view identity IDs",
+    )
     path = output_root / "figure_02_annotation_examples.jpg"
-    figure.save(path, quality=95)
+    save_image(figure, path)
     print(f"Saved {path}")
     return metadata
 
@@ -368,52 +498,126 @@ def draw_horizontal_bar_chart(
     counts: Counter | dict,
     width: int,
     height: int,
-    color: tuple[int, int, int],
+    subtitle: str = "",
+    color_map: dict | None = None,
+    label_map: dict | None = None,
+    order: list[str] | None = None,
 ) -> Image.Image:
-    image = Image.new("RGB", (width, height), (255, 255, 255))
+    image = Image.new("RGB", (width, height), CARD_BG)
     draw = ImageDraw.Draw(image)
-    title_font = load_font(22)
-    label_font = load_font(16)
+    title_font = load_font(25, bold=True)
+    subtitle_font = load_font(15)
+    label_font = load_font(17, bold=True)
     value_font = load_font(15)
-    draw.text((24, 18), title, fill=(20, 20, 20), font=title_font)
+    small_font = load_font(13)
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=18, fill=CARD_BG, outline=GRID, width=1)
+    draw.text((30, 24), title, fill=INK, font=title_font)
+    if subtitle:
+        draw.text((30, 58), subtitle, fill=MUTED, font=subtitle_font)
 
-    items = list(counts.items())
-    items.sort(key=lambda item: item[1], reverse=True)
+    if order is not None:
+        items = [(key, counts[key]) for key in order if key in counts]
+    else:
+        items = list(counts.items())
+        items.sort(key=lambda item: item[1], reverse=True)
     total = sum(value for _, value in items)
     max_value = max((value for _, value in items), default=1)
-    chart_x = 165
-    chart_y = 64
-    row_h = max(34, int((height - chart_y - 24) / max(1, len(items))))
-    bar_max_w = width - chart_x - 150
+    chart_x = 238
+    chart_y = 96
+    row_h = max(42, int((height - chart_y - 44) / max(1, len(items))))
+    bar_max_w = width - chart_x - 220
 
     for idx, (label, value) in enumerate(items):
         y = chart_y + idx * row_h
         pct = 100.0 * value / total if total else 0.0
-        draw.text((24, y + 6), str(label), fill=(30, 30, 30), font=label_font)
+        label_text = label_map.get(label, str(label)) if label_map else str(label)
+        color = color_map.get(label, ACCENT) if color_map else ACCENT
+        draw.text((30, y + 6), label_text, fill=INK, font=label_font)
         bar_w = int(bar_max_w * value / max_value)
-        draw.rectangle((chart_x, y + 5, chart_x + bar_w, y + row_h - 8), fill=color)
-        draw.rectangle((chart_x, y + 5, chart_x + bar_max_w, y + row_h - 8), outline=(215, 215, 215))
+        track_y1 = y + 8
+        track_y2 = y + row_h - 11
+        draw.rounded_rectangle((chart_x, track_y1, chart_x + bar_max_w, track_y2), radius=9, fill=(238, 241, 245))
+        draw.rounded_rectangle((chart_x, track_y1, chart_x + bar_w, track_y2), radius=9, fill=color)
         draw.text(
-            (chart_x + bar_w + 10, y + 6),
+            (chart_x + bar_max_w + 18, y + 6),
             f"{value:,} ({pct:.1f}%)",
-            fill=(30, 30, 30),
+            fill=INK,
             font=value_font,
         )
+    draw.text((30, height - 30), f"Total: {total:,}", fill=MUTED, font=small_font)
     return image
 
 
 def make_statistics_figure(dataset: list[dict], output_root: Path) -> dict:
     stats = compute_stats(dataset)
-    panel_w = 760
-    panel_h = 290
+    panel_w = 980
+    panel_h = 340
     panels = [
-        draw_horizontal_bar_chart("Vehicle class distribution", stats["class_counts"], panel_w, panel_h, (80, 143, 190)),
-        draw_horizontal_bar_chart("Condition distribution", stats["condition_counts"], panel_w, panel_h, (90, 174, 97)),
-        draw_horizontal_bar_chart("View distribution", stats["view_counts"], panel_w, panel_h, (230, 126, 34)),
+        draw_horizontal_bar_chart(
+            "Vehicle class distribution",
+            stats["class_counts"],
+            panel_w,
+            panel_h,
+            subtitle="Number of annotated vehicle boxes per class",
+            color_map=CLASS_COLORS,
+            label_map=CLASS_LABELS,
+            order=["truck", "motorbike", "car", "bus"],
+        ),
+        draw_horizontal_bar_chart(
+            "Weather and time distribution",
+            stats["condition_counts"],
+            panel_w,
+            panel_h,
+            subtitle="Annotated boxes across the four collection conditions",
+            color_map=CONDITION_COLORS,
+            label_map=CONDITION_LABELS,
+            order=["morning_norain", "evening_norain", "morning_rain", "evening_rain"],
+        ),
+        draw_horizontal_bar_chart(
+            "Camera-view distribution",
+            stats["view_counts"],
+            panel_w,
+            250,
+            subtitle="Annotated boxes in the synchronized before/after views",
+            color_map=VIEW_COLORS,
+            label_map=VIEW_LABELS,
+            order=["before", "after"],
+        ),
+        draw_horizontal_bar_chart(
+            "Shared cross-view identities",
+            Counter({key: value["shared_ids"] for key, value in stats["cross_view"].items()}),
+            panel_w,
+            panel_h,
+            subtitle="Identities appearing in both camera views",
+            color_map=CONDITION_COLORS,
+            label_map=CONDITION_LABELS,
+            order=["morning_norain", "evening_norain", "morning_rain", "evening_rain"],
+        ),
     ]
-    figure = make_grid(panels, rows=3, cols=1, gap=12)
+    separate_names = [
+        "figure_03a_class_distribution.png",
+        "figure_03b_condition_distribution.png",
+        "figure_03c_view_distribution.png",
+        "figure_03d_shared_identities.png",
+    ]
+    for panel, name in zip(panels, separate_names):
+        panel_path = output_root / name
+        save_image(panel, panel_path)
+        print(f"Saved {panel_path}")
+
+    title_h = 86
+    figure = Image.new("RGB", (panel_w * 2 + 42, title_h + panel_h * 2 + 70), PAPER_BG)
+    draw = ImageDraw.Draw(figure)
+    title_font = load_font(30, bold=True)
+    subtitle_font = load_font(16)
+    draw.text((28, 24), "Dataset statistics", fill=INK, font=title_font)
+    draw.text((28, 62), "Distribution of annotations by class, condition, camera view, and shared identities", fill=MUTED, font=subtitle_font)
+    figure.paste(panels[0], (20, title_h))
+    figure.paste(panels[1], (panel_w + 22, title_h))
+    figure.paste(panels[2], (20, title_h + panel_h + 22))
+    figure.paste(panels[3], (panel_w + 22, title_h + panel_h + 22))
     path = output_root / "figure_03_dataset_statistics.png"
-    figure.save(path)
+    save_image(figure, path)
     print(f"Saved {path}")
 
     json_stats = {
@@ -493,8 +697,9 @@ def choose_shared_identity_pair(condition: dict) -> dict | None:
 
 
 def make_cross_view_pairs(dataset: list[dict], output_root: Path, crop_size: int) -> list[dict]:
-    title_font = load_font(20)
-    label_font = load_font(17)
+    title_font = load_font(20, bold=True)
+    label_font = load_font(15, bold=True)
+    small_font = load_font(14)
     panels = []
     metadata = []
     for condition in dataset:
@@ -506,16 +711,19 @@ def make_cross_view_pairs(dataset: list[dict], output_root: Path, crop_size: int
         before_crop = crop_box(before_path, pair["before_box"], crop_size)
         after_crop = crop_box(after_path, pair["after_box"], crop_size)
 
-        panel_w = crop_size * 2 + 34
-        panel_h = crop_size + 86
-        panel = Image.new("RGB", (panel_w, panel_h), (255, 255, 255))
+        panel_w = crop_size * 2 + 54
+        panel_h = crop_size + 112
+        panel = Image.new("RGB", (panel_w, panel_h), CARD_BG)
         draw = ImageDraw.Draw(panel)
-        title = f"{condition['name']}  |  ID {pair['id']}  |  {pair['label']}"
-        draw.text((16, 12), title, fill=(20, 20, 20), font=title_font)
-        panel.paste(before_crop, (12, 52))
-        panel.paste(after_crop, (crop_size + 22, 52))
-        draw.text((12, crop_size + 58), "before", fill=(60, 60, 60), font=label_font)
-        draw.text((crop_size + 22, crop_size + 58), "after", fill=(60, 60, 60), font=label_font)
+        color = CONDITION_COLORS.get(condition["name"], ACCENT)
+        draw.rounded_rectangle((0, 0, panel_w - 1, panel_h - 1), radius=16, fill=CARD_BG, outline=GRID, width=1)
+        draw.rounded_rectangle((18, 18, 30, 48), radius=5, fill=color)
+        draw.text((42, 16), pretty_condition(condition["name"]), fill=INK, font=title_font)
+        draw.text((42, 43), f"ID {pair['id']} | {pretty_class(pair['label'])}", fill=MUTED, font=small_font)
+        panel.paste(before_crop, (18, 72))
+        panel.paste(after_crop, (crop_size + 36, 72))
+        draw.text((18, crop_size + 78), "Before", fill=VIEW_COLORS["before"], font=label_font)
+        draw.text((crop_size + 36, crop_size + 78), "After", fill=VIEW_COLORS["after"], font=label_font)
         panels.append(panel)
         metadata.append(
             {
@@ -528,9 +736,17 @@ def make_cross_view_pairs(dataset: list[dict], output_root: Path, crop_size: int
             }
         )
 
-    figure = make_grid(panels, rows=len(panels), cols=1, gap=16)
+    title_h = 82
+    grid = make_grid(panels, rows=2, cols=2, gap=18, bg=PAPER_BG)
+    figure = Image.new("RGB", (grid.width + 48, grid.height + title_h + 28), PAPER_BG)
+    draw = ImageDraw.Draw(figure)
+    figure_title_font = load_font(30, bold=True)
+    figure_subtitle_font = load_font(16)
+    draw.text((24, 22), "Cross-view positive pairs", fill=INK, font=figure_title_font)
+    draw.text((24, 60), "Same identity shown in before/after camera views", fill=MUTED, font=figure_subtitle_font)
+    figure.paste(grid, (24, title_h))
     path = output_root / "figure_04_cross_view_positive_pairs.jpg"
-    figure.save(path, quality=95)
+    save_image(figure, path)
     print(f"Saved {path}")
     return metadata
 
