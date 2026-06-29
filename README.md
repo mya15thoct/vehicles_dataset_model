@@ -1,6 +1,6 @@
 # Multi-Weather Traffic Vehicle Re-Identification
 
-This repository contains the data-processing and baseline evaluation code for a multi-weather vehicle re-identification dataset. The dataset is collected from two synchronized camera views of the same traffic scene:
+This repository contains data-processing and baseline evaluation code for a multi-weather traffic vehicle re-identification dataset. The dataset is collected from two synchronized camera views of the same traffic scene:
 
 - `before`: front-side/front-view stream
 - `after`: rear-side/back-view stream
@@ -15,16 +15,16 @@ The full image dataset is hosted on Hugging Face:
 https://huggingface.co/datasets/mya15thoct/multi-weather_traffic_data
 ```
 
-The dataset contains four conditions:
+The dataset contains four traffic conditions:
 
 | Condition | Views | Description |
 | --- | --- | --- |
-| `morning_norain` | `before`, `after` | Morning, no rain |
-| `morning_rain` | `before`, `after` | Morning, rain |
-| `evening_norain` | `before`, `after` | Evening/night, no rain |
-| `evening_rain` | `before`, `after` | Evening/night, rain |
+| `morning_norain` | `before`, `after` | Morning traffic without rain |
+| `morning_rain` | `before`, `after` | Morning traffic with rain |
+| `evening_norain` | `before`, `after` | Evening/night traffic without rain |
+| `evening_rain` | `before`, `after` | Evening/night traffic with rain |
 
-Expected Hugging Face dataset layout:
+Expected dataset layout after downloading from Hugging Face:
 
 ```text
 multi-weather_traffic_data/
@@ -47,7 +47,7 @@ multi-weather_traffic_data/
   evening_rain_after/
 ```
 
-The annotation format is CVAT XML. Each frame contains vehicle boxes:
+Annotations are provided in CVAT XML format. Each annotated vehicle box contains a class label and an identity ID:
 
 ```xml
 <image id="1" name="frame_000001.jpg" width="1080" height="1920">
@@ -57,25 +57,56 @@ The annotation format is CVAT XML. Each frame contains vehicle boxes:
 </image>
 ```
 
-The Re-ID identity rule is:
+The identity rule is:
 
 ```text
 same physical vehicle  -> same id
 different vehicle      -> different id
 ```
 
+## Annotation Statistics
+
+Current validated annotation statistics:
+
+| Condition | View | Boxes | IDs |
+| --- | --- | ---: | ---: |
+| `morning_norain` | `before` | 12,784 | 628 |
+| `morning_norain` | `after` | 10,785 | 571 |
+| `evening_norain` | `before` | 10,798 | 567 |
+| `evening_norain` | `after` | 10,631 | 537 |
+| `morning_rain` | `before` | 18,445 | 669 |
+| `morning_rain` | `after` | 16,074 | 618 |
+| `evening_rain` | `before` | 12,807 | 635 |
+| `evening_rain` | `after` | 8,628 | 581 |
+| **Total** |  | **100,952** |  |
+
+Cross-view identity consistency:
+
+| Condition | Shared IDs | Before-only IDs | After-only IDs | Label mismatches |
+| --- | ---: | ---: | ---: | ---: |
+| `morning_norain` | 571 | 57 | 0 | 0 |
+| `evening_norain` | 537 | 30 | 0 | 0 |
+| `morning_rain` | 618 | 51 | 0 | 0 |
+| `evening_rain` | 581 | 54 | 0 | 0 |
+
+Vehicle classes:
+
+```text
+bus, car, motorbike, truck
+```
+
 ## Repository Structure
 
 ```text
-annotation/                 # Working annotation copies used by this repo
-configs/dataset.json        # Dataset path/configuration
-docs/data.md                # Dataset notes and current statistics
+annotation/                 # Annotation copies used by this repository
+configs/dataset.json        # Dataset configuration
+docs/data.md                # Dataset notes and statistics
 scripts/
   validate_annotations.py   # Validate XML labels and cross-view identity consistency
   export_reid_crops.py      # Export vehicle crops from frame images and XML
   build_reid_split.py       # Build query/gallery split for zero-shot checks
   build_train_test_split.py # Build identity-disjoint train/val/test split
-  audit_reid_splits.py      # Check for data leakage in split CSV files
+  audit_reid_splits.py      # Check split CSV files for data leakage
 baselines/
   osnet/                    # Pretrained OSNet sanity-check evaluator
   torchreid/                # Fine-tuning/evaluation baselines
@@ -83,40 +114,56 @@ baselines/
 
 ## Setup
 
-Create or activate a Python environment with PyTorch, TorchVision, Pillow, and Torchreid:
+Create a Python environment with Python 3.10+.
 
-```bash
-conda activate recognition
-pip install pillow gdown
-pip install torchvision==0.27.0 --index-url https://download.pytorch.org/whl/cu130
-pip install torchreid
+Install PyTorch and TorchVision for your CUDA or CPU setup by following the official PyTorch instructions:
+
+```text
+https://pytorch.org/get-started/locally/
 ```
 
-Adjust the PyTorch/TorchVision install command to match your CUDA and PyTorch version if needed.
+Then install the remaining dependencies:
+
+```bash
+pip install pillow gdown torchreid huggingface_hub
+```
+
+Verify the environment:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+python -c "import torchreid; print('torchreid ok')"
+```
 
 ## Download Data
 
-Example using Hugging Face CLI:
+Install the Hugging Face CLI if needed:
 
 ```bash
-huggingface-cli download mya15thoct/multi-weather_traffic_data \
+pip install -U huggingface_hub
+```
+
+Download the dataset:
+
+```bash
+hf download mya15thoct/multi-weather_traffic_data \
   --repo-type dataset \
-  --local-dir /mnt/ngan/vehicles/multi-weather_traffic_data
+  --local-dir /path/to/multi-weather_traffic_data
 ```
 
-Or clone with Git LFS:
+If the dataset is gated, request access on the Hugging Face dataset page and log in before downloading:
 
 ```bash
-git lfs install
-git clone https://huggingface.co/datasets/mya15thoct/multi-weather_traffic_data \
-  /mnt/ngan/vehicles/multi-weather_traffic_data
+hf auth login
 ```
 
-Set paths consistently:
+In the examples below, set these paths for your machine:
 
-```text
-Image root      : /mnt/ngan/vehicles/multi-weather_traffic_data
-Annotation root : /mnt/ngan/vehicles/multi-weather_traffic_data/annotation
+```bash
+DATA_ROOT=/path/to/multi-weather_traffic_data
+CROP_ROOT=/path/to/reid_crops
+SPLIT_ROOT=/path/to/reid_benchmark_identity
+RESULT_ROOT=results/baselines_final
 ```
 
 ## Data Pipeline
@@ -125,44 +172,42 @@ Validate annotations:
 
 ```bash
 python scripts/validate_annotations.py \
-  --annotation-root /mnt/ngan/vehicles/multi-weather_traffic_data/annotation \
-  --include-in-progress
+  --config configs/dataset.json \
+  --annotation-root "$DATA_ROOT/annotation"
 ```
 
 Export vehicle crops:
 
 ```bash
-nohup python -u scripts/export_reid_crops.py \
+python -u scripts/export_reid_crops.py \
   --config configs/dataset.json \
-  --image-root /mnt/ngan/vehicles/multi-weather_traffic_data \
-  --annotation-root /mnt/ngan/vehicles/multi-weather_traffic_data/annotation \
+  --image-root "$DATA_ROOT" \
+  --annotation-root "$DATA_ROOT/annotation" \
   --completed-only \
-  --output-root /mnt/ngan/vehicles/reid_crops \
-  > export_reid_crops.log 2>&1 &
+  --output-root "$CROP_ROOT"
 ```
 
 Build identity-disjoint train/validation/test splits:
 
 ```bash
-nohup python -u scripts/build_train_test_split.py \
-  --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
-  --output-root /mnt/ngan/vehicles/reid_benchmark_identity \
+python -u scripts/build_train_test_split.py \
+  --manifest "$CROP_ROOT/manifest.csv" \
+  --output-root "$SPLIT_ROOT" \
   --train-ratio 0.7 \
   --val-ratio 0.1 \
-  --seed 42 \
-  > build_train_test_split.log 2>&1 &
+  --seed 42
 ```
 
 Audit the split for leakage:
 
 ```bash
 python scripts/audit_reid_splits.py \
-  --train /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
-  --val-query /mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv \
-  --val-gallery /mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv \
-  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
-  --output results/split_audit.json
+  --train "$SPLIT_ROOT/train.csv" \
+  --val-query "$SPLIT_ROOT/val_query.csv" \
+  --val-gallery "$SPLIT_ROOT/val_gallery.csv" \
+  --query "$SPLIT_ROOT/query.csv" \
+  --gallery "$SPLIT_ROOT/gallery.csv" \
+  --output "$SPLIT_ROOT/audit.json"
 ```
 
 A clean split should report:
@@ -189,7 +234,7 @@ The retrieval task is:
 Given a vehicle crop from the after view, retrieve the same vehicle from the before-view gallery.
 ```
 
-Metrics:
+Recommended metrics:
 
 ```text
 Rank-1, Rank-5, mAP
@@ -213,20 +258,20 @@ mobilenetv2_x1_0
 Run all default baselines:
 
 ```bash
-nohup python -u baselines/torchreid/run_all.py \
-  --manifest /mnt/ngan/vehicles/reid_crops/manifest.csv \
-  --train-csv /mnt/ngan/vehicles/reid_benchmark_identity/train.csv \
-  --val-query /mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv \
-  --val-gallery /mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv \
-  --query /mnt/ngan/vehicles/reid_benchmark_identity/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv \
-  --results-root results/baselines_final \
+python -u baselines/torchreid/run_all.py \
+  --manifest "$CROP_ROOT/manifest.csv" \
+  --train-csv "$SPLIT_ROOT/train.csv" \
+  --val-query "$SPLIT_ROOT/val_query.csv" \
+  --val-gallery "$SPLIT_ROOT/val_gallery.csv" \
+  --query "$SPLIT_ROOT/query.csv" \
+  --gallery "$SPLIT_ROOT/gallery.csv" \
+  --results-root "$RESULT_ROOT" \
   --epochs 100 \
   --eval-every 5 \
-  --patience 3 \
-  --min-delta 0.001 \
+  --patience 4 \
   --batch-size 64 \
-  > run_all_baselines.log 2>&1 &
+  --num-workers 4 \
+  --no-auto-split
 ```
 
 Outputs:
@@ -239,18 +284,6 @@ results/baselines_final/<model_name>/best_val.json
 results/baselines_final/<model_name>/eval.json
 ```
 
-## Current Validated Subset
-
-The initial validated subset contains the two no-rain conditions:
-
-| Split | Images | Identities |
-| --- | ---: | ---: |
-| Train | 25,754 | 616 |
-| Validation | 3,785 | 88 |
-| Test | 7,837 | 176 |
-
-No identity or crop overlap was found between train, validation, and test in the audited split.
-
 ## Notes for Paper Experiments
 
 Recommended result tables:
@@ -262,19 +295,6 @@ Recommended result tables:
 5. Qualitative success and failure examples.
 
 For per-condition results, train the model once on the full training split, then evaluate the selected checkpoint on condition-specific query/gallery subsets.
-
-## Citation
-
-If you use this dataset or code, please cite the associated paper when available.
-
-```bibtex
-@misc{multi_weather_traffic_reid,
-  title        = {Multi-Weather Traffic Vehicle Re-Identification Dataset},
-  author       = {Tran, Ngan and Contributors},
-  year         = {2026},
-  howpublished = {\url{https://huggingface.co/datasets/mya15thoct/multi-weather_traffic_data}}
-}
-```
 
 ## License
 
