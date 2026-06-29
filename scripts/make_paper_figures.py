@@ -76,6 +76,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--thumb-width", type=int, default=360)
     parser.add_argument("--crop-size", type=int, default=280)
+    parser.add_argument(
+        "--candidate-count",
+        type=int,
+        default=12,
+        help="Number of annotation candidate images to export for each condition/view.",
+    )
     return parser.parse_args()
 
 
@@ -239,6 +245,46 @@ def choose_annotation_record(view_data: dict, target_boxes: int = 9) -> dict | N
     if not candidates:
         return None
     return max(candidates, key=lambda item: item[0])[2]
+
+
+def choose_annotation_candidates(view_data: dict, count: int, min_boxes: int = 2, max_boxes: int = 8) -> list[dict]:
+    candidates = []
+    records = view_data["records"]
+    midpoint = (len(records) - 1) / 2 if records else 0
+    for index, record in enumerate(records):
+        path = image_path_for(view_data, record)
+        if not path.exists():
+            continue
+        boxes = record["boxes"]
+        box_count = len(boxes)
+        if box_count < min_boxes or box_count > max_boxes:
+            continue
+        areas = [box_area(box) for box in boxes]
+        if not areas:
+            continue
+        large_boxes = sum(1 for area in areas if area >= 6000)
+        labels = {box["label"] for box in boxes}
+        target_score = -abs(box_count - 5) * 3.0
+        variety_score = min(len(labels), 3) * 2.0
+        size_score = min(large_boxes, 5) * 1.5
+        center_score = 1.0 - abs(index - midpoint) / max(1.0, midpoint)
+        score = target_score + variety_score + size_score + center_score
+        candidates.append((score, index, record))
+    if len(candidates) < count:
+        for index, record in enumerate(records):
+            path = image_path_for(view_data, record)
+            if not path.exists():
+                continue
+            box_count = len(record["boxes"])
+            if box_count == 0 or box_count > 12:
+                continue
+            score = -abs(box_count - 5)
+            candidates.append((score, index, record))
+    unique = {}
+    for score, index, record in candidates:
+        unique[record["frame_name"]] = (score, index, record)
+    ranked = sorted(unique.values(), key=lambda item: (item[0], -abs(item[1] - midpoint)), reverse=True)
+    return [record for _, _, record in ranked[:count]]
 
 
 def fit_image(image: Image.Image, width: int, height: int, fill: tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
@@ -514,6 +560,93 @@ def make_annotation_examples(dataset: list[dict], output_root: Path, thumb_width
     path = output_root / "figure_02_annotation_examples.jpg"
     save_image(figure, path)
     print(f"Saved {path}")
+    return metadata
+
+
+def make_annotation_candidate_exports(
+    dataset: list[dict],
+    output_root: Path,
+    thumb_width: int,
+    max_boxes: int,
+    candidate_count: int,
+) -> list[dict]:
+    """Export many candidate annotation examples so paper figures can be chosen manually."""
+    if candidate_count <= 0:
+        return []
+
+    candidate_root = output_root / "candidates" / "annotation"
+    candidate_root.mkdir(parents=True, exist_ok=True)
+
+    metadata = []
+    thumb_height = int(thumb_width * 1.25)
+    sheet_cols = 4
+    sheet_count = min(candidate_count, 8)
+
+    for condition in dataset:
+        condition_name = condition["name"]
+        for view in VIEW_ORDER:
+            view_data = condition["views"][view]
+            records = choose_annotation_candidates(
+                view_data,
+                count=candidate_count,
+                min_boxes=2,
+                max_boxes=max(2, max_boxes),
+            )
+            if not records:
+                continue
+
+            cards = []
+            for rank, record in enumerate(records, start=1):
+                image_path = image_path_for(view_data, record)
+                annotated = draw_boxes_on_image(
+                    image_path,
+                    record["boxes"],
+                    output_width=thumb_width - 16,
+                    output_height=thumb_height - 16,
+                    max_boxes=max_boxes,
+                )
+                card = make_caption_card(
+                    annotated,
+                    title=f"{condition_name} / {view}",
+                    subtitle=f"{record['frame_name']} | boxes={len(record['boxes'])}",
+                    width=thumb_width,
+                    height=thumb_height,
+                    accent=CONDITION_COLORS.get(condition_name, ACCENT),
+                )
+                safe_frame = Path(record["frame_name"]).stem
+                image_name = f"{condition_name}_{view}_{rank:02d}_{safe_frame}.jpg"
+                image_out = candidate_root / image_name
+                save_image(card, image_out)
+
+                item = {
+                    "figure": "annotation_candidates",
+                    "condition": condition_name,
+                    "view": view,
+                    "rank": rank,
+                    "frame": record["frame_name"],
+                    "boxes": len(record["boxes"]),
+                    "shown_boxes": min(max_boxes, len(record["boxes"])),
+                    "path": str(image_out),
+                }
+                metadata.append(item)
+
+                if rank <= sheet_count:
+                    cards.append(card)
+
+            if cards:
+                sheet = make_horizontal_contact_sheet(
+                    cards,
+                    title=f"Annotation candidates: {pretty_condition(condition_name)} / {pretty_view(view)}",
+                    subtitle="Pick a cleaner frame for the paper figure if the default example is too busy",
+                    cols=sheet_cols,
+                )
+                sheet_out = candidate_root / f"{condition_name}_{view}_candidate_sheet.jpg"
+                save_image(sheet, sheet_out)
+                print(f"Saved {sheet_out}")
+
+    metadata_path = candidate_root / "candidate_metadata.json"
+    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    print(f"Saved {metadata_path}")
     return metadata
 
 
@@ -829,6 +962,15 @@ def main() -> int:
     metadata = []
     metadata.extend(make_dataset_overview(dataset, output_root, args.thumb_width))
     metadata.extend(make_annotation_examples(dataset, output_root, args.thumb_width, args.max_boxes))
+    metadata.extend(
+        make_annotation_candidate_exports(
+            dataset,
+            output_root,
+            args.thumb_width,
+            args.max_boxes,
+            args.candidate_count,
+        )
+    )
     stats = make_statistics_figure(dataset, output_root)
     metadata.extend(make_cross_view_pairs(dataset, output_root, args.crop_size))
 

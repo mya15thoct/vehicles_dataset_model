@@ -157,7 +157,9 @@ python scripts/make_paper_figures.py \
   --config configs/dataset.json \
   --image-root /mnt/ngan/vehicles/multi-weather_traffic_data \
   --annotation-root annotation \
-  --output-root docs/figures
+  --output-root docs/figures \
+  --candidate-count 20 \
+  --max-boxes 8
 ```
 
 Expected outputs:
@@ -173,7 +175,10 @@ docs/figures/figure_03d_shared_identities.png
 docs/figures/figure_04_cross_view_positive_pairs.jpg
 docs/figures/figure_metadata.json
 docs/figures/figure_statistics.json
+docs/figures/candidates/annotation/
 ```
+
+The candidate folder contains multiple annotated-frame options per condition/view. Use these files to manually pick cleaner examples for the final paper figure.
 
 ## Information To Send Back To The Writer
 
