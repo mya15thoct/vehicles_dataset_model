@@ -194,6 +194,23 @@ docs/figures/retrieval_examples/retrieval_evening_rain.jpg
 docs/figures/retrieval_examples/qualitative_retrieval_metadata.json
 ```
 
+## Generate Result Chart
+
+Create a compact condition-wise Rank-1/mAP chart from the breakdown CSV:
+
+```bash
+python conference/make_result_chart.py \
+  --summary results/conference_50_breakdowns/breakdown_summary.csv \
+  --model osnet_ain_x1_0 \
+  --output-root docs/figures/result_charts
+```
+
+Output:
+
+```text
+docs/figures/result_charts/condition_performance_osnet_ain_x1_0.png
+```
+
 ## Conference Contribution Wording
 
 Recommended contribution statement:
