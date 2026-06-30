@@ -160,6 +160,40 @@ results/conference_50_breakdowns/subsets/
 
 The breakdown script reuses the trained checkpoint. It does not train separate models for each condition or class.
 
+## Generate Qualitative Retrieval Figure
+
+Use the best mAP checkpoint to generate a qualitative top-k retrieval figure. The figure uses after-view crops as queries and before-view crops as ranked gallery results; green borders indicate correct matches and red borders indicate incorrect matches.
+
+```bash
+nohup python -u conference/make_retrieval_figure.py \
+  --query /mnt/recover/ngan/vehicles/reid_benchmark_conference_50_recover/query.csv \
+  --gallery /mnt/recover/ngan/vehicles/reid_benchmark_conference_50_recover/gallery.csv \
+  --weights results/conference_50_e100/osnet_ain_x1_0/model_best.pth \
+  --model-name osnet_ain_x1_0 \
+  --output-root docs/figures/retrieval_examples \
+  --top-k 3 \
+  --batch-size 64 \
+  --num-workers 4 \
+  > make_retrieval_figure.log 2>&1 &
+```
+
+Monitor:
+
+```bash
+tail -f make_retrieval_figure.log
+```
+
+Outputs:
+
+```text
+docs/figures/retrieval_examples/qualitative_retrieval_top3.jpg
+docs/figures/retrieval_examples/retrieval_morning_norain.jpg
+docs/figures/retrieval_examples/retrieval_evening_norain.jpg
+docs/figures/retrieval_examples/retrieval_morning_rain.jpg
+docs/figures/retrieval_examples/retrieval_evening_rain.jpg
+docs/figures/retrieval_examples/qualitative_retrieval_metadata.json
+```
+
 ## Conference Contribution Wording
 
 Recommended contribution statement:
