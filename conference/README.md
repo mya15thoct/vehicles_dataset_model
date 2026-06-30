@@ -128,6 +128,38 @@ Final result table:
 cat results/conference_50_e100/summary.csv
 ```
 
+## Evaluate Condition And Class Breakdowns
+
+After at least one checkpoint finishes training, evaluate the same checkpoint on condition-specific and class-specific test subsets. For the paper, run this first on the best overall model, for example `osnet_ain_x1_0`:
+
+```bash
+nohup python -u conference/evaluate_breakdowns.py \
+  --query /mnt/recover/ngan/vehicles/reid_benchmark_conference_50/query.csv \
+  --gallery /mnt/recover/ngan/vehicles/reid_benchmark_conference_50/gallery.csv \
+  --results-root results/conference_50_e100 \
+  --output-root results/conference_50_breakdowns \
+  --models osnet_ain_x1_0 \
+  --batch-size 64 \
+  --num-workers 4 \
+  > run_conference_breakdowns.log 2>&1 &
+```
+
+Monitor:
+
+```bash
+tail -f run_conference_breakdowns.log
+```
+
+Outputs:
+
+```text
+results/conference_50_breakdowns/breakdown_summary.csv
+results/conference_50_breakdowns/breakdown_summary.json
+results/conference_50_breakdowns/subsets/
+```
+
+The breakdown script reuses the trained checkpoint. It does not train separate models for each condition or class.
+
 ## Conference Contribution Wording
 
 Recommended contribution statement:
