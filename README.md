@@ -110,6 +110,8 @@ scripts/
 baselines/
   osnet/                    # Pretrained OSNet sanity-check evaluator
   torchreid/                # Fine-tuning/evaluation baselines
+methods/
+  wicv/                     # Proposed WICV-Net training framework (see methods/wicv/README.md)
 ```
 
 ## Setup
