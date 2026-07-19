@@ -23,7 +23,35 @@ def grad_reverse(tensor: torch.Tensor, weight: float) -> torch.Tensor:
     return GradientReversal.apply(tensor, weight)
 
 
+TORCHVISION_BACKBONES = ("tv_swin_t", "tv_swin_s", "tv_vit_b_16", "tv_convnext_tiny")
+
+
+def build_torchvision_backbone(model_name: str, pretrained: bool) -> nn.Module:
+    from torchvision import models
+
+    if model_name == "tv_swin_t":
+        backbone = models.swin_t(weights=models.Swin_T_Weights.IMAGENET1K_V1 if pretrained else None)
+        backbone.head = nn.Identity()
+    elif model_name == "tv_swin_s":
+        backbone = models.swin_s(weights=models.Swin_S_Weights.IMAGENET1K_V1 if pretrained else None)
+        backbone.head = nn.Identity()
+    elif model_name == "tv_vit_b_16":
+        backbone = models.vit_b_16(weights=models.ViT_B_16_Weights.IMAGENET1K_V1 if pretrained else None)
+        backbone.heads = nn.Identity()
+    elif model_name == "tv_convnext_tiny":
+        backbone = models.convnext_tiny(
+            weights=models.ConvNeXt_Tiny_Weights.IMAGENET1K_V1 if pretrained else None
+        )
+        backbone.classifier[2] = nn.Identity()
+    else:
+        raise SystemExit(f"Unknown torchvision backbone: {model_name}")
+    return backbone
+
+
 def build_backbone(model_name: str, pretrained: bool):
+    if model_name in TORCHVISION_BACKBONES:
+        return build_torchvision_backbone(model_name, pretrained)
+
     try:
         import torchreid
     except ImportError as exc:
@@ -69,6 +97,10 @@ class WICVNet(nn.Module):
         width: int = 128,
     ) -> None:
         super().__init__()
+        if model_name == "tv_vit_b_16" and (height, width) != (224, 224):
+            raise SystemExit("tv_vit_b_16 requires --height 224 --width 224 (fixed positional embeddings).")
+        if model_name.startswith("tv_swin") and (height % 32 or width % 32):
+            raise SystemExit("Swin backbones require height/width divisible by 32.")
         self.model_name = model_name
         self.backbone = build_backbone(model_name, pretrained)
         self.feat_dim = infer_feature_dim(self.backbone, height, width)

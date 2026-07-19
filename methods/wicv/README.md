@@ -100,14 +100,27 @@ Contribution claims for the paper:
 ## Files
 
 ```text
-dataset.py       CSV dataset, condition factorization, cross-view PK sampler
-model.py         Torchreid backbone + BNNeck + GRL time/weather heads
-losses.py        CV-Tri loss and CVPA prototype memory
-metrics.py       Feature extraction and Rank-1/Rank-5/mAP (same protocol as baselines)
-train.py         Training with validation-mAP model selection and early stopping
-evaluate.py      Test evaluation: overall + per-condition, writes eval.json
-run_ablation.py  Trains/evaluates all ablation variants, writes summary.csv
+dataset.py                CSV dataset, condition factorization, cross-view PK sampler
+model.py                  Torchreid/torchvision backbone + BNNeck + GRL time/weather heads
+losses.py                 CV-Tri loss and CVPA prototype memory
+metrics.py                Feature extraction and Rank-1/Rank-5/mAP (same protocol as baselines)
+rerank.py                 K-reciprocal re-ranking (Zhong et al., CVPR 2017)
+train.py                  Training with validation-mAP model selection and early stopping
+evaluate.py               Test evaluation: overall + per-condition (+ --rerank), writes eval.json
+run_ablation.py           Trains/evaluates all ablation variants, writes summary.csv
+run_sensitivity.py        One-at-a-time loss-weight sweeps (w_adv, w_cvpa, w_tri, temperature)
+run_seeds.py              Multi-seed runs with mean +/- std aggregation
+run_cross_condition.py    Cross-condition generalization protocols (needs scripts/build_cross_condition_splits.py)
+make_retrieval_figures.py Qualitative success/failure retrieval strips per condition
 ```
+
+Backbones: any Torchreid model name (osnet_x1_0, resnet50, ...) plus
+torchvision transformers/CNNs: `tv_swin_t`, `tv_swin_s`, `tv_vit_b_16`
+(requires --height 224 --width 224), `tv_convnext_tiny`. Use `--lr 1e-4`
+for transformer fine-tuning.
+
+The full experiment playbook for the journal submission lives in
+`docs/journal_experiment_plan.md`.
 
 ## Usage
 

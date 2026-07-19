@@ -64,20 +64,29 @@ def compute_metrics(
     query_ids: list[str],
     gallery_ids: list[str],
 ) -> dict:
+    scores = query_features @ gallery_features.t()
+    return compute_metrics_from_dist(-scores, query_ids, gallery_ids)
+
+
+def compute_metrics_from_dist(
+    dist: torch.Tensor,
+    query_ids: list[str],
+    gallery_ids: list[str],
+) -> dict:
+    """Metrics from a query-by-gallery distance matrix (smaller = closer)."""
     rank1 = 0
     rank5 = 0
     ap_sum = 0.0
     valid_queries = 0
 
-    for index in range(query_features.shape[0]):
+    for index in range(dist.shape[0]):
         qid = query_ids[index]
         positives = [gid == qid for gid in gallery_ids]
         num_positives = sum(positives)
         if num_positives == 0:
             continue
 
-        scores = torch.mv(gallery_features, query_features[index])
-        order = torch.argsort(scores, descending=True).tolist()
+        order = torch.argsort(dist[index]).tolist()
         ordered_matches = [positives[i] for i in order]
 
         valid_queries += 1
