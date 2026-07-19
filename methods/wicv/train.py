@@ -33,9 +33,9 @@ from model import WICVNet
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--train-csv", default="/mnt/ngan/vehicles/reid_benchmark_identity/train.csv")
-    parser.add_argument("--val-query", default="/mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv")
-    parser.add_argument("--val-gallery", default="/mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv")
+    parser.add_argument("--train-csv", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/train.csv")
+    parser.add_argument("--val-query", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/val_query.csv")
+    parser.add_argument("--val-gallery", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/val_gallery.csv")
     parser.add_argument("--model-name", default="osnet_x1_0")
     parser.add_argument("--output-dir", default="results/wicv/osnet_x1_0_full")
     parser.add_argument("--epochs", type=int, default=60)
