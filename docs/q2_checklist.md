@@ -45,13 +45,15 @@ paper (dataset + WICV-Net). Live experiment status: `journal_experiment_plan.md`
 
 ## Required Figures
 
-- [ ] Dataset sample grid: all four conditions and both views.
-- [ ] Camera/view diagram.
-- [ ] Annotation examples with bounding boxes and IDs.
-- [ ] Class distribution chart.
-- [ ] WICV-Net architecture/method diagram.
+- [ ] Dataset sample grid: all four conditions and both views. (`scripts/make_paper_figures.py` -> `figure_01_dataset_overview.jpg`)
+- [ ] Camera/view diagram (not auto-generated; draw manually).
+- [ ] Annotation examples with bounding boxes and IDs. (`figure_02_annotation_examples.jpg`)
+- [ ] Class distribution chart. (`figure_03a_class_distribution.png`)
+- [ ] Per-condition/view box counts + after/before ratio. (`figure_05_view_asymmetry.png`, new)
+- [ ] Cross-view identity coverage (shared vs. before-only). (`figure_06_crossview_id_coverage.png`, new)
+- [ ] WICV-Net architecture/method diagram (not auto-generated; draw manually).
 - [ ] Loss-weight sensitivity plot.
-- [ ] Re-ID success/failure examples (per condition).
+- [ ] Re-ID success/failure examples (per condition). (`methods/wicv/make_retrieval_figures.py`)
 - [ ] Detection examples (optional).
 
 ## Benchmark Quality

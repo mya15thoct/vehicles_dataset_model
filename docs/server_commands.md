@@ -117,36 +117,9 @@ Expected:
 
 ## Train And Evaluate Re-ID Baselines
 
-```bash
-nohup python -u baselines/torchreid/run_all.py \
-  --manifest /mnt/ngan/vehicles/reid_crops_full/manifest.csv \
-  --train-csv /mnt/ngan/vehicles/reid_benchmark_identity_full/train.csv \
-  --val-query /mnt/ngan/vehicles/reid_benchmark_identity_full/val_query.csv \
-  --val-gallery /mnt/ngan/vehicles/reid_benchmark_identity_full/val_gallery.csv \
-  --query /mnt/ngan/vehicles/reid_benchmark_identity_full/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark_identity_full/gallery.csv \
-  --results-root results/baselines_full_e100 \
-  --epochs 100 \
-  --eval-every 5 \
-  --patience 4 \
-  --batch-size 64 \
-  --num-workers 4 \
-  --no-auto-split \
-  > run_all_baselines_full_e100.log 2>&1 &
-```
-
-Monitor:
-
-```bash
-tail -f run_all_baselines_full_e100.log
-```
-
-After completion:
-
-```bash
-cat results/baselines_full_e100/summary.csv
-cat results/baselines_full_e100/summary.json
-```
+Superseded by `docs/journal_experiment_plan.md` (section P1b), which has the
+corrected `/mnt/recover/ngan/...` paths and is kept in sync with the current
+experiment suite. Use that file instead of duplicating the command here.
 
 ## Generate Paper Figures
 

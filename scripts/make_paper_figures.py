@@ -678,6 +678,7 @@ def compute_stats(dataset: list[dict]) -> dict:
     class_counts = Counter()
     condition_counts = Counter()
     view_counts = Counter()
+    condition_view_counts = Counter()
     frame_counts = Counter()
     id_counts = {}
     cross_view = {}
@@ -694,6 +695,7 @@ def compute_stats(dataset: list[dict]) -> dict:
                     class_counts[box["label"]] += 1
                     condition_counts[condition_name] += 1
                     view_counts[view] += 1
+                    condition_view_counts[(condition_name, view)] += 1
                     if box["id"] is not None:
                         ids.add(box["id"])
             ids_by_view[view] = ids
@@ -712,6 +714,7 @@ def compute_stats(dataset: list[dict]) -> dict:
         "class_counts": class_counts,
         "condition_counts": condition_counts,
         "view_counts": view_counts,
+        "condition_view_counts": condition_view_counts,
         "frame_counts": frame_counts,
         "id_counts": id_counts,
         "cross_view": cross_view,
@@ -858,6 +861,219 @@ def make_statistics_figure(dataset: list[dict], output_root: Path) -> dict:
     return json_stats
 
 
+CONDITION_ORDER = ["morning_norain", "evening_norain", "morning_rain", "evening_rain"]
+
+LEGEND_SWATCH = 16
+
+
+def draw_legend(draw: ImageDraw.ImageDraw, x: int, y: int, entries: list[tuple[str, tuple]], font) -> None:
+    for label, color in entries:
+        draw.rounded_rectangle((x, y, x + LEGEND_SWATCH, y + LEGEND_SWATCH), radius=4, fill=color)
+        text_w, _ = text_size(draw, label, font)
+        draw.text((x + LEGEND_SWATCH + 8, y - 1), label, fill=INK, font=font)
+        x += LEGEND_SWATCH + 8 + text_w + 26
+
+
+def make_view_asymmetry_figure(stats: dict, output_root: Path) -> Path:
+    """Figure: per-condition/view box counts (a) and after/before ratio (b).
+
+    Referenced in the paper as the cross-view asymmetry analysis: the
+    after/before box ratio is a proxy for how balanced query vs. gallery
+    volume is within each condition.
+    """
+    width = 980
+    header_h = 92
+    panel_a_h = 300
+    gap = 26
+    panel_b_h = 260
+    footer_h = 34
+    height = header_h + panel_a_h + gap + panel_b_h + footer_h
+
+    image = Image.new("RGB", (width, height), PAPER_BG)
+    draw = ImageDraw.Draw(image)
+    title_font = load_font(28, bold=True)
+    subtitle_font = load_font(15)
+    panel_title_font = load_font(19, bold=True)
+    label_font = load_font(15)
+    value_font = load_font(13)
+    small_font = load_font(13)
+
+    draw.text((24, 22), "Per-condition volume and cross-view asymmetry", fill=INK, font=title_font)
+    draw.text(
+        (24, 58),
+        "(a) Annotated box counts per view and condition. (b) After/before box ratio as a symmetry proxy.",
+        fill=MUTED,
+        font=subtitle_font,
+    )
+    draw_legend(
+        draw,
+        width - 260,
+        26,
+        [(VIEW_LABELS["before"], VIEW_COLORS["before"]), (VIEW_LABELS["after"], VIEW_COLORS["after"])],
+        label_font,
+    )
+
+    # Panel (a): grouped bars, one group per condition, two bars (before/after) per group.
+    panel_a_y = header_h
+    draw.rounded_rectangle((0, panel_a_y, width - 1, panel_a_y + panel_a_h - 1), radius=18, outline=GRID, width=1, fill=CARD_BG)
+    draw.text((24, panel_a_y + 16), "(a) Box counts by view", fill=INK, font=panel_title_font)
+
+    counts = stats["condition_view_counts"]
+    max_count = max(counts.values(), default=1)
+    chart_left = 190
+    chart_right = width - 110  # leave room for the value label past the longest bar
+    chart_top = panel_a_y + 56
+    chart_bottom = panel_a_y + panel_a_h - 24
+    group_h = (chart_bottom - chart_top) / len(CONDITION_ORDER)
+    bar_h = group_h * 0.36
+    bar_gap = group_h * 0.06
+
+    for idx, condition in enumerate(CONDITION_ORDER):
+        group_y = chart_top + idx * group_h
+        draw.text((24, group_y + group_h / 2 - 9), CONDITION_LABELS[condition], fill=INK, font=label_font)
+        for offset, view in enumerate(VIEW_ORDER):
+            value = counts.get((condition, view), 0)
+            bar_y = group_y + bar_gap + offset * (bar_h + bar_gap)
+            bar_w = (chart_right - chart_left) * value / max_count if max_count else 0
+            draw.rounded_rectangle(
+                (chart_left, bar_y, chart_left + bar_w, bar_y + bar_h),
+                radius=6,
+                fill=VIEW_COLORS[view],
+            )
+            draw.text((chart_left + bar_w + 12, bar_y + bar_h / 2 - 7), f"{value:,}", fill=INK, font=value_font)
+
+    # Panel (b): after/before ratio per condition, with a reference line at 1.0 (perfect balance).
+    panel_b_y = panel_a_y + panel_a_h + gap
+    draw.rounded_rectangle((0, panel_b_y, width - 1, panel_b_y + panel_b_h - 1), radius=18, outline=GRID, width=1, fill=CARD_BG)
+    draw.text((24, panel_b_y + 16), "(b) After / before box ratio", fill=INK, font=panel_title_font)
+    draw.text(
+        (24, panel_b_y + 40),
+        "1.0 = balanced views. Lower values mean fewer after-view (query) boxes relative to before-view (gallery).",
+        fill=MUTED,
+        font=small_font,
+    )
+
+    ratios = {}
+    for condition in CONDITION_ORDER:
+        before = counts.get((condition, "before"), 0)
+        after = counts.get((condition, "after"), 0)
+        ratios[condition] = after / before if before else 0.0
+
+    plot_left = 190
+    plot_right = width - 60
+    plot_top = panel_b_y + 70
+    plot_bottom = panel_b_y + panel_b_h - 30
+    max_ratio = max(1.05, max(ratios.values(), default=1.0) * 1.1)
+    bar_h_b = (plot_bottom - plot_top) / len(CONDITION_ORDER) * 0.5
+
+    def ratio_x(value: float) -> float:
+        return plot_left + (plot_right - plot_left) * value / max_ratio
+
+    reference_x = ratio_x(1.0)
+    draw.line((reference_x, plot_top - 8, reference_x, plot_bottom + 8), fill=MUTED, width=1)
+    draw.text((reference_x - 14, plot_bottom + 10), "1.0", fill=MUTED, font=small_font)
+
+    row_h = (plot_bottom - plot_top) / len(CONDITION_ORDER)
+    hardest_condition = min(ratios, key=ratios.get)
+    for idx, condition in enumerate(CONDITION_ORDER):
+        row_y = plot_top + idx * row_h + (row_h - bar_h_b) / 2
+        draw.text((24, row_y + bar_h_b / 2 - 8), CONDITION_LABELS[condition], fill=INK, font=label_font)
+        value = ratios[condition]
+        color = ACCENT if condition == hardest_condition else CONDITION_COLORS[condition]
+        draw.rounded_rectangle((plot_left, row_y, ratio_x(value), row_y + bar_h_b), radius=6, fill=color)
+        draw.text((ratio_x(value) + 10, row_y + bar_h_b / 2 - 7), f"{value:.2f}", fill=INK, font=value_font)
+
+    draw.text(
+        (24, height - footer_h + 6),
+        f"Lowest ratio (hardest condition): {CONDITION_LABELS[hardest_condition]} ({ratios[hardest_condition]:.2f})",
+        fill=MUTED,
+        font=small_font,
+    )
+
+    path = output_root / "figure_05_view_asymmetry.png"
+    save_image(image, path)
+    print(f"Saved {path}")
+    return path
+
+
+def make_identity_coverage_figure(stats: dict, output_root: Path) -> Path:
+    """Figure: cross-view identity coverage per condition (shared vs. before-only).
+
+    Every condition has zero after-only identities by construction (Section
+    III.C.3), so the coverage question is entirely about what fraction of
+    before-view identities also appear in the after view (the "matchable
+    fraction" used as the retrieval query pool).
+    """
+    width = 980
+    height = 460
+    image = Image.new("RGB", (width, height), CARD_BG)
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=18, outline=GRID, width=1, fill=CARD_BG)
+    title_font = load_font(25, bold=True)
+    subtitle_font = load_font(15)
+    label_font = load_font(16, bold=True)
+    value_font = load_font(14)
+    pct_font = load_font(15, bold=True)
+    small_font = load_font(13)
+
+    draw.text((30, 24), "Cross-view identity coverage", fill=INK, font=title_font)
+    draw.text(
+        (30, 58),
+        "Shared identities are matchable in retrieval; before-only identities are excluded. After-only identities are zero in every condition.",
+        fill=MUTED,
+        font=subtitle_font,
+    )
+    draw_legend(
+        draw,
+        30,
+        88,
+        [("Shared (matchable)", ACCENT), ("Before-only (excluded)", GRID)],
+        value_font,
+    )
+
+    cross_view = stats["cross_view"]
+    max_total = max((cross_view[c]["before_ids"] for c in CONDITION_ORDER), default=1)
+    chart_left = 220
+    chart_right = width - 230
+    chart_top = 138
+    chart_bottom = height - 40
+    row_h = (chart_bottom - chart_top) / len(CONDITION_ORDER)
+    bar_h = row_h * 0.5
+
+    for idx, condition in enumerate(CONDITION_ORDER):
+        row = cross_view[condition]
+        shared = row["shared_ids"]
+        before_only = row["before_only_ids"]
+        total = row["before_ids"]
+        matchable_pct = 100.0 * shared / total if total else 0.0
+
+        y = chart_top + idx * row_h + (row_h - bar_h) / 2
+        draw.text((24, y + bar_h / 2 - 8), CONDITION_LABELS[condition], fill=INK, font=label_font)
+
+        scale = (chart_right - chart_left) / max_total if max_total else 0
+        shared_w = shared * scale
+        before_only_w = before_only * scale
+
+        # 2px surface gap between the two stacked segments.
+        draw.rounded_rectangle((chart_left, y, chart_left + shared_w, y + bar_h), radius=6, fill=ACCENT)
+        seg2_x = chart_left + shared_w + 2
+        draw.rounded_rectangle((seg2_x, y, seg2_x + before_only_w, y + bar_h), radius=6, fill=GRID)
+
+        draw.text(
+            (chart_left + shared_w + before_only_w + 14, y + bar_h / 2 - 7),
+            f"{matchable_pct:.1f}% matchable",
+            fill=INK,
+            font=pct_font,
+        )
+
+    draw.text((24, height - 26), f"Total before-view identities shown as full bar length per condition.", fill=MUTED, font=small_font)
+
+    path = output_root / "figure_06_crossview_id_coverage.png"
+    save_image(image, path)
+    print(f"Saved {path}")
+    return path
+
+
 def crop_box(image_path: Path, box: dict, crop_size: int) -> Image.Image:
     with Image.open(image_path) as image:
         image = image.convert("RGB")
@@ -996,6 +1212,9 @@ def main() -> int:
         )
     )
     stats = make_statistics_figure(dataset, output_root)
+    raw_stats = compute_stats(dataset)
+    make_view_asymmetry_figure(raw_stats, output_root)
+    make_identity_coverage_figure(raw_stats, output_root)
     metadata.extend(make_cross_view_pairs(dataset, output_root, args.crop_size))
 
     metadata_path = output_root / "figure_metadata.json"

@@ -11,8 +11,8 @@ WICV-Net method, target: IEEE Access).
 | `paper_brief.md` | Dataset + method story, contributions, and positioning |
 | `paper_template.md` | IEEE Access-style paper outline and writing template (includes the WICV-Net method section) |
 | `q2_checklist.md` | Submission-readiness checklist |
-| `journal_experiment_plan.md` | Prioritized experiment playbook: every paper table mapped to its command, live status |
-| `server_commands.md` | Commands to collect dataset/annotation-side results from the server |
+| `journal_experiment_plan.md` | Prioritized experiment playbook: every paper table mapped to its command, live status (this is the one source of truth for what to run) |
+| `server_commands.md` | Data-pipeline setup only: env, annotation validation, crop export, split build/audit. Training commands live in `journal_experiment_plan.md` instead. |
 | `writer_prompt.md` | Short handoff prompt for drafting the manuscript once results are in |
 | `figures/` | Generated dataset figures after running `scripts/make_paper_figures.py` |
 | `../methods/wicv/README.md` | WICV-Net method description and novelty positioning (source of truth for the method section) |
