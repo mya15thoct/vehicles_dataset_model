@@ -1,6 +1,7 @@
-# Q2 Submission Checklist
+# Q2 / IEEE Access Submission Checklist
 
-This checklist is designed for a dataset paper targeting a Scopus Q2-level venue.
+This checklist targets IEEE Access (Scopus Q2) for a **dataset + method**
+paper (dataset + WICV-Net). Live experiment status: `journal_experiment_plan.md`.
 
 ## Dataset Completeness
 
@@ -32,11 +33,15 @@ This checklist is designed for a dataset paper targeting a Scopus Q2-level venue
 - [x] Class distribution.
 - [x] Cross-view identity coverage.
 - [ ] Comparison with existing datasets.
-- [ ] Re-ID baseline table.
+- [ ] Comparison with recent invariance/cross-view Re-ID methods (positioning table).
+- [ ] Re-ID baseline table (CE/triplet, multiple backbones).
+- [ ] Main table: baselines vs. WICV-Net, multi-seed mean +/- std.
+- [ ] Component ablation table (ce_only / plain_triplet / no_adv / no_cvpa / no_cvtri / full).
+- [ ] Loss-weight sensitivity table (w_adv, w_cvpa).
 - [ ] Per-condition Re-ID table.
-- [ ] Detection baseline table.
-- [ ] Per-class detection table.
-- [ ] Ablation/domain-shift table, if time permits.
+- [ ] Cross-condition generalization table (4 protocols).
+- [ ] Re-ranking add-on row.
+- [ ] Detection baseline table (optional, only if run).
 
 ## Required Figures
 
@@ -44,8 +49,10 @@ This checklist is designed for a dataset paper targeting a Scopus Q2-level venue
 - [ ] Camera/view diagram.
 - [ ] Annotation examples with bounding boxes and IDs.
 - [ ] Class distribution chart.
-- [ ] Re-ID success/failure examples.
-- [ ] Detection examples.
+- [ ] WICV-Net architecture/method diagram.
+- [ ] Loss-weight sensitivity plot.
+- [ ] Re-ID success/failure examples (per condition).
+- [ ] Detection examples (optional).
 
 ## Benchmark Quality
 
@@ -54,8 +61,11 @@ This checklist is designed for a dataset paper targeting a Scopus Q2-level venue
 - [x] Leakage audit script available.
 - [x] Final audit output included in supplementary or repository.
 - [ ] Baselines trained with validation-based model selection.
-- [ ] Same split used for all models.
+- [ ] Same split used for all models (baseline and WICV-Net).
 - [ ] Per-condition evaluation performed.
+- [ ] Ablation result is internally consistent (full model matches or beats every single-component-removed variant; if not, the sensitivity study explains why and the paper reports it honestly).
+- [ ] Result validated on >= 2 backbone families (CNN + transformer).
+- [ ] Result validated across >= 3 random seeds.
 
 ## Writing Quality
 
