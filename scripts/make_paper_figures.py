@@ -20,6 +20,7 @@ except ImportError as exc:  # pragma: no cover
 
 PAPER_BG = (248, 249, 250)
 CARD_BG = (255, 255, 255)
+BG = (255, 255, 255)  # flat white, matches conference/make_result_chart.py house style
 INK = (25, 31, 40)
 MUTED = (91, 99, 112)
 GRID = (222, 226, 232)
@@ -889,7 +890,7 @@ def make_view_asymmetry_figure(stats: dict, output_root: Path) -> Path:
     footer_h = 34
     height = header_h + panel_a_h + gap + panel_b_h + footer_h
 
-    image = Image.new("RGB", (width, height), PAPER_BG)
+    image = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(image)
     title_font = load_font(28, bold=True)
     subtitle_font = load_font(15)
@@ -915,7 +916,6 @@ def make_view_asymmetry_figure(stats: dict, output_root: Path) -> Path:
 
     # Panel (a): grouped bars, one group per condition, two bars (before/after) per group.
     panel_a_y = header_h
-    draw.rounded_rectangle((0, panel_a_y, width - 1, panel_a_y + panel_a_h - 1), radius=18, outline=GRID, width=1, fill=CARD_BG)
     draw.text((24, panel_a_y + 16), "(a) Box counts by view", fill=INK, font=panel_title_font)
 
     counts = stats["condition_view_counts"]
@@ -944,7 +944,7 @@ def make_view_asymmetry_figure(stats: dict, output_root: Path) -> Path:
 
     # Panel (b): after/before ratio per condition, with a reference line at 1.0 (perfect balance).
     panel_b_y = panel_a_y + panel_a_h + gap
-    draw.rounded_rectangle((0, panel_b_y, width - 1, panel_b_y + panel_b_h - 1), radius=18, outline=GRID, width=1, fill=CARD_BG)
+    draw.line((0, panel_b_y - gap // 2, width, panel_b_y - gap // 2), fill=GRID, width=1)
     draw.text((24, panel_b_y + 16), "(b) After / before box ratio", fill=INK, font=panel_title_font)
     draw.text(
         (24, panel_b_y + 40),
@@ -1006,9 +1006,8 @@ def make_identity_coverage_figure(stats: dict, output_root: Path) -> Path:
     """
     width = 980
     height = 460
-    image = Image.new("RGB", (width, height), CARD_BG)
+    image = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=18, outline=GRID, width=1, fill=CARD_BG)
     title_font = load_font(25, bold=True)
     subtitle_font = load_font(15)
     label_font = load_font(16, bold=True)
