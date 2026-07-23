@@ -10,20 +10,39 @@ SPLIT_ROOT=/mnt/recover/ngan/vehicles/reid_benchmark_identity_full
 CROSS_ROOT=/mnt/recover/ngan/vehicles/reid_cross_condition
 ```
 
-## Status snapshot (2026-07-20)
+## Status snapshot (2026-07-22): ALL 8 STEPS COMPLETE
+
+Every table the paper needs now has real numbers. See
+`docs/final_results.md` for the full reference mapped directly to the
+paper's Table 7-11 -- use that file when filling the manuscript, not this
+one (this file is the historical run log / command reference).
 
 | Item | Status |
 | --- | --- |
-| WICV-Net full, osnet_x1_0 (test mAP 0.768) | done |
-| WICV-Net full, resnet50 (test mAP 0.801) | done |
-| Ablation 6 variants, osnet_x1_0 | done, but no_adv (0.815) > full (0.762) -> w_adv must be re-tuned |
-| Baseline table (`results/baselines_full_e100`) | INCOMPLETE: only resnet101 finished |
-| w_adv sensitivity sweep | pending (P1) |
-| Cross-condition generalization | pending (P2) |
-| Multi-seed mean±std | pending (P3) |
-| Transformer backbone row | pending (P4) |
-| Re-ranking rows | pending (cheap, after checkpoints exist) |
-| Qualitative retrieval figures | pending |
+| Baseline table, all 6 models (`results/baselines_full_e100`) | done (mobilenetv2 re-run fixed after a stale-split bug) |
+| w_adv / w_cvpa sensitivity sweep | done -- resolved the FCA framing question, see `final_results.md` Table 8/9 |
+| WICV-Net full, osnet_x1_0, 3-seed mean+-std | done: mAP 81.86 +/- 0.36 |
+| WICV-Net full, resnet50 | done: mAP 82.77 |
+| WICV-Net full, tv_swin_t (transformer) | done: mAP 84.57 -- best overall result |
+| Component ablation, 6 variants | done (uses untuned w_adv=0.5, caveat documented) |
+| Cross-condition generalization, 4 protocols | done -- WICV-Net wins 4/4 |
+| Re-ranking add-on | done: mAP 81.81 -> 86.02 |
+| Qualitative retrieval figures | done, 8 files in `docs/figures/retrieval/` |
+| Dataset-statistics figures (view asymmetry, ID coverage) | code added (`scripts/make_paper_figures.py`); run on server to generate |
+
+## Remaining before submission (not experiments -- writing/verification only)
+
+1. Fill Tables 7-11 and the abstract in the paper draft using
+   `docs/final_results.md`.
+2. Resolve the two TODO citations (DW-ReID, DualDis) -- real citation info
+   already found, see `methods/wicv/README.md` novelty section.
+3. Verify/replace the "fixed overpass-mounted camera setup" claim in
+   Section III-A with the actual camera setup.
+4. Run `scripts/make_paper_figures.py` on the server to produce
+   `figure_05_view_asymmetry.png` and `figure_06_crossview_id_coverage.png`.
+5. Optional, not required: resnet101 WICV-Net run, CE baseline for
+   tv_swin_t, joint w_adv/w_cvpa sweep -- see `final_results.md` limitations
+   note for how to phrase these gaps honestly if skipped.
 
 ## P1 — Fix the adversarial weight (decides the paper's story)
 
@@ -151,12 +170,12 @@ python -u methods/wicv/make_retrieval_figures.py \
 
 ## Reviewer-proofing checklist
 
-- [ ] Same-backbone baseline vs method comparison (osnet_x1_0)
-- [ ] Ablation where full model is best or the story matches the numbers
-- [ ] Sensitivity analysis for every introduced loss weight
-- [ ] mean±std over >= 3 seeds for headline numbers
-- [ ] Cross-domain generalization experiment
-- [ ] A transformer-era comparison row
-- [ ] Qualitative success AND failure cases
-- [ ] Leakage audit reported (audit.json), identity-disjoint protocol described
-- [ ] Code + dataset links in the paper (GitHub + Hugging Face)
+- [x] Same-backbone baseline vs method comparison (osnet_x1_0: 79.15 -> 81.86 mAP)
+- [x] Ablation where full model is best or the story matches the numbers (resolved via sensitivity: tuned full beats no_adv, see `final_results.md`)
+- [x] Sensitivity analysis for every introduced loss weight (w_adv, w_cvpa done; w_tri/temperature not swept -- optional, not blocking)
+- [x] mean±std over >= 3 seeds for headline numbers (osnet_x1_0: 81.86 +/- 0.36 mAP)
+- [x] Cross-domain generalization experiment (4/4 protocols won)
+- [x] A transformer-era comparison row (tv_swin_t, 84.57 mAP, best overall)
+- [x] Qualitative success AND failure cases (8 figures)
+- [x] Leakage audit reported (audit.json), identity-disjoint protocol described
+- [ ] Code + dataset links in the paper (GitHub + Hugging Face) -- verify both are public/final before submission

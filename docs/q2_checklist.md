@@ -24,24 +24,26 @@ paper (dataset + WICV-Net). Live experiment status: `journal_experiment_plan.md`
 - [x] Leakage audit script.
 - [x] Baseline training/evaluation scripts.
 - [x] Final split CSV files archived or reproducible by seed.
-- [ ] Final baseline results archived.
+- [x] Final baseline results archived (`results/baselines_full_e100/summary.csv`, all 6 models).
 - [ ] Environment/package versions documented.
 
 ## Required Paper Tables
 
+All numbers ready in `docs/final_results.md`, mapped to Table 7-11.
+
 - [x] Dataset statistics by condition/view.
 - [x] Class distribution.
 - [x] Cross-view identity coverage.
-- [ ] Comparison with existing datasets.
-- [ ] Comparison with recent invariance/cross-view Re-ID methods (positioning table).
-- [ ] Re-ID baseline table (CE/triplet, multiple backbones).
-- [ ] Main table: baselines vs. WICV-Net, multi-seed mean +/- std.
-- [ ] Component ablation table (ce_only / plain_triplet / no_adv / no_cvpa / no_cvtri / full).
-- [ ] Loss-weight sensitivity table (w_adv, w_cvpa).
-- [ ] Per-condition Re-ID table.
-- [ ] Cross-condition generalization table (4 protocols).
-- [ ] Re-ranking add-on row.
-- [ ] Detection baseline table (optional, only if run).
+- [ ] Comparison with existing datasets. (Table 1 in draft has the structure; verify facts before submission)
+- [ ] Comparison with recent invariance/cross-view Re-ID methods (Table 2; DW-ReID/DualDis citations still TODO, see `methods/wicv/README.md`)
+- [x] Re-ID baseline table (CE/triplet, multiple backbones) -- done, 6 models.
+- [x] Main table: baselines vs. WICV-Net, multi-seed mean +/- std -- done (osnet_x1_0 3-seed, resnet50 + tv_swin_t single-run).
+- [x] Component ablation table (ce_only / plain_triplet / no_adv / no_cvpa / no_cvtri / full) -- done, caveat on untuned w_adv documented.
+- [x] Loss-weight sensitivity table (w_adv, w_cvpa) -- done.
+- [x] Per-condition Re-ID table -- done.
+- [x] Cross-condition generalization table (4 protocols) -- done, WICV-Net wins 4/4.
+- [x] Re-ranking add-on row -- done.
+- [ ] Detection baseline table (optional, not run -- omit section rather than leave TODO).
 
 ## Required Figures
 
@@ -49,12 +51,12 @@ paper (dataset + WICV-Net). Live experiment status: `journal_experiment_plan.md`
 - [ ] Camera/view diagram (not auto-generated; draw manually).
 - [ ] Annotation examples with bounding boxes and IDs. (`figure_02_annotation_examples.jpg`)
 - [ ] Class distribution chart. (`figure_03a_class_distribution.png`)
-- [ ] Per-condition/view box counts + after/before ratio. (`figure_05_view_asymmetry.png`, new)
-- [ ] Cross-view identity coverage (shared vs. before-only). (`figure_06_crossview_id_coverage.png`, new)
+- [ ] Per-condition/view box counts + after/before ratio. (`figure_05_view_asymmetry.png`, code ready, run on server)
+- [ ] Cross-view identity coverage (shared vs. before-only). (`figure_06_crossview_id_coverage.png`, code ready, run on server)
 - [ ] WICV-Net architecture/method diagram (not auto-generated; draw manually).
-- [ ] Loss-weight sensitivity plot.
-- [ ] Re-ID success/failure examples (per condition). (`methods/wicv/make_retrieval_figures.py`)
-- [ ] Detection examples (optional).
+- [ ] Loss-weight sensitivity plot (data in `results/wicv_sensitivity/summary.csv`; not yet plotted).
+- [x] Re-ID success/failure examples (per condition) -- done, 8 files in `docs/figures/retrieval/`.
+- [ ] Detection examples (optional, not run).
 
 ## Benchmark Quality
 
@@ -62,12 +64,12 @@ paper (dataset + WICV-Net). Live experiment status: `journal_experiment_plan.md`
 - [x] Query/gallery direction defined.
 - [x] Leakage audit script available.
 - [x] Final audit output included in supplementary or repository.
-- [ ] Baselines trained with validation-based model selection.
-- [ ] Same split used for all models (baseline and WICV-Net).
-- [ ] Per-condition evaluation performed.
-- [ ] Ablation result is internally consistent (full model matches or beats every single-component-removed variant; if not, the sensitivity study explains why and the paper reports it honestly).
-- [ ] Result validated on >= 2 backbone families (CNN + transformer).
-- [ ] Result validated across >= 3 random seeds.
+- [x] Baselines trained with validation-based model selection.
+- [x] Same split used for all models (baseline and WICV-Net).
+- [x] Per-condition evaluation performed.
+- [x] Ablation result is internally consistent (resolved: tuned full beats no_adv; untuned full does not -- both reported honestly).
+- [x] Result validated on >= 2 backbone families (CNN + transformer: osnet, resnet50, tv_swin_t).
+- [x] Result validated across >= 3 random seeds (osnet_x1_0 only; resnet50/tv_swin_t are single-run -- state this scope limit).
 
 ## Writing Quality
 
@@ -90,11 +92,11 @@ These details should be filled before submission:
 3. Camera resolution.
 4. Frame rate or frame sampling rate.
 5. Duration of each condition.
-6. Hardware used for training.
-7. Final Re-ID results.
-8. Final detection results.
+6. Hardware used for training (GPU model -- record from the server before submission).
+7. ~~Final Re-ID results.~~ Done, see `docs/final_results.md`.
+8. Final detection results (not run; omit detection section from the paper).
 9. License.
-10. Citation/BibTeX.
+10. Citation/BibTeX (2 pending: DW-ReID, DualDis -- info in `methods/wicv/README.md`).
 
 ## Recommended Final Claim
 
