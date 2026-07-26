@@ -105,6 +105,8 @@ def main() -> int:
         pretrained=False,
         height=height,
         width=width,
+        use_cvt=checkpoint.get("use_cvt", False),
+        use_can=checkpoint.get("use_can", False),
     )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)

@@ -64,7 +64,12 @@ class ReidTrainDataset(Dataset):
 
 
 class CropDataset(Dataset):
-    """Evaluation dataset returning (image, row_index)."""
+    """Evaluation dataset returning (image, row_index, condition_index).
+
+    The condition index is scene metadata (time-of-day x weather) already
+    present in the split CSV; it is what the condition-adaptive neck routes on
+    at inference time.
+    """
 
     def __init__(self, rows: list[dict], transform) -> None:
         self.rows = rows
@@ -78,7 +83,8 @@ class CropDataset(Dataset):
         with Image.open(row["crop_path"]) as image:
             image = image.convert("RGB")
             tensor = self.transform(image)
-        return tensor, index
+        time_index, weather_index = condition_factors(row["condition"])
+        return tensor, index, time_index * 2 + weather_index
 
 
 class CrossViewIdentitySampler(Sampler):

@@ -7,6 +7,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from modules import ConditionAdaptiveBNNeck, CrossViewTransition
+
 
 class GradientReversal(torch.autograd.Function):
     @staticmethod
@@ -78,14 +80,19 @@ def infer_feature_dim(backbone: nn.Module, height: int, width: int) -> int:
 
 
 class WICVNet(nn.Module):
-    """Backbone + BNNeck identity head + gradient-reversed time/weather heads.
+    """Backbone + (condition-adaptive) BNNeck + optional CVT / adversarial heads.
 
     forward() in train mode returns a dict with:
-      features    -- raw embedding used by triplet / prototype losses
-      id_logits   -- identity logits from the BNNeck feature
-      time_logits -- 2-way (morning/evening) adversarial logits
-      weather_logits -- 2-way (norain/rain) adversarial logits
+      features     -- raw backbone embedding used by triplet / prototype losses
+      bn_features  -- BNNeck embedding; the space retrieval actually runs in,
+                      and therefore the space CVT is trained on
+      id_logits    -- identity logits from the BNNeck feature
+      time_logits / weather_logits -- gradient-reversed condition logits (FCA)
     In eval mode it returns the L2-normalized BNNeck embedding.
+
+    `use_can` swaps the single shared BNNeck for a condition-adaptive one, and
+    `use_cvt` attaches the directional cross-view transition module; both are
+    off by default so the v1 configuration is reproducible unchanged.
     """
 
     def __init__(
@@ -95,6 +102,9 @@ class WICVNet(nn.Module):
         pretrained: bool = True,
         height: int = 256,
         width: int = 128,
+        use_cvt: bool = False,
+        use_can: bool = False,
+        cvt_dropout: float = 0.0,
     ) -> None:
         super().__init__()
         if model_name == "tv_vit_b_16" and (height, width) != (224, 224):
@@ -102,12 +112,18 @@ class WICVNet(nn.Module):
         if model_name.startswith("tv_swin") and (height % 32 or width % 32):
             raise SystemExit("Swin backbones require height/width divisible by 32.")
         self.model_name = model_name
+        self.use_cvt = use_cvt
+        self.use_can = use_can
         self.backbone = build_backbone(model_name, pretrained)
         self.feat_dim = infer_feature_dim(self.backbone, height, width)
 
-        self.bnneck = nn.BatchNorm1d(self.feat_dim)
-        self.bnneck.bias.requires_grad_(False)
+        if use_can:
+            self.bnneck = ConditionAdaptiveBNNeck(self.feat_dim)
+        else:
+            self.bnneck = nn.BatchNorm1d(self.feat_dim)
+            self.bnneck.bias.requires_grad_(False)
         self.id_classifier = nn.Linear(self.feat_dim, num_classes, bias=False)
+        self.transition = CrossViewTransition(self.feat_dim, dropout=cvt_dropout) if use_cvt else None
 
         self.time_head = nn.Sequential(
             nn.Linear(self.feat_dim, self.feat_dim // 4),
@@ -126,15 +142,32 @@ class WICVNet(nn.Module):
             output = output[-1]
         return output
 
-    def forward(self, images: torch.Tensor, grl_weight: float = 1.0):
+    def _neck(self, features: torch.Tensor, condition: torch.Tensor | None) -> torch.Tensor:
+        if self.use_can:
+            return self.bnneck(features, condition)
+        return self.bnneck(features)
+
+    def transform(self, features: torch.Tensor, direction: str) -> torch.Tensor:
+        """Apply the learned cross-view map to already-extracted embeddings."""
+        if self.transition is None:
+            raise RuntimeError("This checkpoint was trained without CVT (use_cvt=False).")
+        return self.transition(features, direction)
+
+    def forward(
+        self,
+        images: torch.Tensor,
+        grl_weight: float = 1.0,
+        condition: torch.Tensor | None = None,
+    ):
         features = self._backbone_features(images)
-        bn_features = self.bnneck(features)
+        bn_features = self._neck(features, condition)
         if not self.training:
             return F.normalize(bn_features, p=2, dim=1)
 
         reversed_features = grad_reverse(bn_features, grl_weight)
         return {
             "features": features,
+            "bn_features": bn_features,
             "id_logits": self.id_classifier(bn_features),
             "time_logits": self.time_head(reversed_features),
             "weather_logits": self.weather_head(reversed_features),

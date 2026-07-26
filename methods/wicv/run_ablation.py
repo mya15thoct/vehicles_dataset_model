@@ -23,12 +23,21 @@ import sys
 from pathlib import Path
 
 VARIANTS: dict[str, list[str]] = {
+    # v1 objective: identity + CV-Tri + CVPA + FCA
     "ce_only": ["--no-triplet", "--no-adv", "--no-cvpa"],
     "plain_triplet": ["--plain-triplet", "--no-adv", "--no-cvpa"],
     "no_adv": ["--no-adv"],
     "no_cvpa": ["--no-cvpa"],
     "no_cvtri": ["--plain-triplet"],
     "full": [],
+    # v2 structural modules. FCA is dropped from the v2 line because the
+    # sensitivity sweep showed adversarial erasure of the condition does not
+    # help; CAN replaces it by normalizing condition statistics instead.
+    "v2_cvt": ["--no-adv", "--use-cvt"],
+    "v2_can": ["--no-adv", "--use-can"],
+    "v2_full": ["--no-adv", "--use-cvt", "--use-can"],
+    # keeps FCA alongside the v2 modules, to show the replacement is justified
+    "v2_full_adv": ["--use-cvt", "--use-can"],
 }
 
 

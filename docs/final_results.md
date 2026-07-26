@@ -25,6 +25,12 @@ mean +/- std over seeds 42/43/44), `results/wicv/resnet50_adv01/eval.json`,
 | resnet50 | **WICV-Net (full)** | 1 | 89.52 | 94.70 | **82.77** |
 | resnet101 | CE / plain-triplet baseline | 1 | 72.20 | 81.76 | 64.92 |
 | resnet101 | WICV-Net (full) | - | not run | not run | not run |
+| mobilenetv2_x1_0 | CE / plain-triplet baseline | 1 | 58.28 | 69.24 | 51.12 |
+| mobilenetv2_x1_0 | WICV-Net (full) | 1 | 40.61 | 55.47 | **32.77** (regression, see note) |
+| osnet_ain_x1_0 | CE / plain-triplet baseline | 1 | 87.16 | 92.03 | 80.53 |
+| osnet_ain_x1_0 | WICV-Net (full) | - | not run | not run | not run |
+| osnet_ibn_x1_0 | CE / plain-triplet baseline | 1 | 86.11 | 91.01 | 79.84 |
+| osnet_ibn_x1_0 | WICV-Net (full) | - | not run | not run | not run |
 | tv_swin_t (transformer) | CE baseline | - | not run (no CE baseline trained for this backbone) | | |
 | tv_swin_t (transformer) | **WICV-Net (full)** | 1 | **90.52** | **94.86** | **84.57** |
 
@@ -33,6 +39,20 @@ Notes for the writer:
   number in the abstract TODO ("... WICV-Net achieves up to 84.6% mAP with a
   transformer backbone, a Delta of X points over the strongest CE baseline
   osnet_ain_x1_0 at 80.53% mAP...").
+- **mobilenetv2_x1_0 is a confirmed negative result, not a bug.** Trained to
+  120 epochs (`results/wicv/mobilenetv2_x1_0_adv01_e120/val_history.json`);
+  validation mAP clearly plateaus from epoch ~95 onward (0.367 -> 0.371 ->
+  0.373 -> 0.374 -> 0.372 -> 0.375, i.e. converged, not under-trained). Test
+  mAP settles at 32.77%, well below the CE baseline's 51.12%. Report this
+  explicitly in Discussion/Limitations rather than omitting the row: the
+  combined CV-Tri + CVPA + FCA objective likely exceeds the optimization
+  capacity of a lightweight backbone, whereas it clearly helps
+  higher-capacity backbones (resnet50, osnet_x1_0, tv_swin_t). This is
+  evidence *for* the paper's rigor (negative results reported honestly), not
+  something to hide.
+- osnet_ain_x1_0 and osnet_ibn_x1_0: WICV-Net not run (baseline only). If
+  time allows, osnet_ain_x1_0 is the highest-value remaining gap since it is
+  the strongest CE baseline overall (80.53 mAP) -- optional, not blocking.
 - resnet50's WICV-Net gain over its own CE baseline is the largest of any
   backbone (+16.10 mAP vs. +2.71 for osnet_x1_0); see Discussion note below.
 - Extra baseline rows not needed for Table 7 but available:

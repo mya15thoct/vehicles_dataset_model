@@ -52,6 +52,44 @@ def cross_view_batch_hard_triplet(
     return loss.mean()
 
 
+def cross_view_transition_loss(
+    transition: nn.Module,
+    bn_features: torch.Tensor,
+    labels: torch.Tensor,
+    views: torch.Tensor,
+) -> torch.Tensor:
+    """Train the directional view maps on in-batch cross-view positive pairs.
+
+    For every (before, after) pair of the same identity present in the batch,
+    `b2a` must carry the before embedding onto its after counterpart and `a2b`
+    the reverse. The *target* of each direction is detached: CVT's job is to
+    learn the transformation between the two view subspaces, not to drag them
+    together -- that is CVPA's job, and letting both gradients flow would let
+    the two objectives satisfy each other by collapsing the view distinction.
+
+    The view-balanced PK sampler guarantees such pairs exist in a batch
+    whenever an identity is observed in both views.
+    """
+    same_id = labels.unsqueeze(0) == labels.unsqueeze(1)
+    before_to_after = same_id & (views.unsqueeze(1) == 0) & (views.unsqueeze(0) == 1)
+    after_to_before = same_id & (views.unsqueeze(1) == 1) & (views.unsqueeze(0) == 0)
+
+    normalized = F.normalize(bn_features, p=2, dim=1)
+    total = bn_features.new_zeros(())
+    terms = 0
+
+    for mask, direction in ((before_to_after, "b2a"), (after_to_before, "a2b")):
+        source_index, target_index = mask.nonzero(as_tuple=True)
+        if source_index.numel() == 0:
+            continue
+        mapped = transition(bn_features[source_index], direction)
+        target = normalized[target_index].detach()
+        total = total + (1.0 - (mapped * target).sum(dim=1)).mean()
+        terms += 1
+
+    return total / terms if terms else total
+
+
 class CrossViewPrototypeMemory(nn.Module):
     """EMA prototype memory for cross-view prototype alignment (CVPA).
 

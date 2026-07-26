@@ -26,9 +26,14 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from dataset import CrossViewIdentitySampler, ReidTrainDataset, identity, read_csv
-from losses import CrossViewPrototypeMemory, cross_view_batch_hard_triplet
+from losses import (
+    CrossViewPrototypeMemory,
+    cross_view_batch_hard_triplet,
+    cross_view_transition_loss,
+)
 from metrics import evaluate_retrieval
 from model import WICVNet
+from modules import condition_index
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +64,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--no-pretrained", action="store_true")
+    parser.add_argument("--use-cvt", action="store_true", help="Enable the cross-view transition module (v2).")
+    parser.add_argument("--w-cvt", type=float, default=1.0, help="Weight of the cross-view transition loss.")
+    parser.add_argument("--cvt-dropout", type=float, default=0.0)
+    parser.add_argument(
+        "--use-can",
+        action="store_true",
+        help="Replace the shared BNNeck with condition-adaptive normalization (v2).",
+    )
     parser.add_argument("--no-adv", action="store_true", help="Disable condition-adversarial heads.")
     parser.add_argument("--no-cvpa", action="store_true", help="Disable cross-view prototype alignment.")
     parser.add_argument("--no-triplet", action="store_true", help="Disable the triplet loss entirely.")
@@ -96,6 +109,8 @@ def save_checkpoint(path: Path, model: WICVNet, args: argparse.Namespace, label_
             "num_classes": len(label_to_index),
             "height": args.height,
             "width": args.width,
+            "use_cvt": args.use_cvt,
+            "use_can": args.use_can,
             "model_state_dict": model.state_dict(),
             "label_to_index": label_to_index,
             "args": vars(args),
@@ -149,6 +164,9 @@ def main() -> int:
         pretrained=not args.no_pretrained,
         height=args.height,
         width=args.width,
+        use_cvt=args.use_cvt,
+        use_can=args.use_can,
+        cvt_dropout=args.cvt_dropout,
     ).to(device)
     memory = CrossViewPrototypeMemory(
         num_ids=len(label_to_index),
@@ -174,6 +192,8 @@ def main() -> int:
             "cvpa": not args.no_cvpa,
             "triplet": not args.no_triplet,
             "cross_view_mining": not args.plain_triplet,
+            "cvt": args.use_cvt,
+            "can": args.use_can,
         },
         "args": vars(args),
     }
@@ -189,7 +209,7 @@ def main() -> int:
         model.train()
         progress = (epoch - 1) / max(1, args.epochs - 1)
         grl_weight = 2.0 / (1.0 + math.exp(-10.0 * progress)) - 1.0
-        totals = {"loss": 0.0, "id": 0.0, "tri": 0.0, "cvpa": 0.0, "adv": 0.0}
+        totals = {"loss": 0.0, "id": 0.0, "tri": 0.0, "cvpa": 0.0, "adv": 0.0, "cvt": 0.0}
         correct = 0
         total = 0
 
@@ -199,9 +219,10 @@ def main() -> int:
             views = views.to(device)
             times = times.to(device)
             weathers = weathers.to(device)
+            conditions = condition_index(times, weathers) if args.use_can else None
 
             optimizer.zero_grad(set_to_none=True)
-            outputs = model(images, grl_weight=grl_weight)
+            outputs = model(images, grl_weight=grl_weight, condition=conditions)
 
             id_loss = id_criterion(outputs["id_logits"], labels)
             loss = id_loss
@@ -230,6 +251,13 @@ def main() -> int:
                 )
                 loss = loss + args.w_adv * adv_loss
 
+            cvt_loss = images.new_zeros(())
+            if args.use_cvt:
+                cvt_loss = cross_view_transition_loss(
+                    model.transition, outputs["bn_features"], labels, views
+                )
+                loss = loss + args.w_cvt * cvt_loss
+
             loss.backward()
             optimizer.step()
 
@@ -242,6 +270,7 @@ def main() -> int:
             totals["tri"] += float(tri_loss) * count
             totals["cvpa"] += float(cvpa_loss) * count
             totals["adv"] += float(adv_loss) * count
+            totals["cvt"] += float(cvt_loss) * count
             predictions = torch.argmax(outputs["id_logits"], dim=1)
             correct += (predictions == labels).sum().item()
             total += count
@@ -251,8 +280,8 @@ def main() -> int:
                     f"epoch={epoch}/{args.epochs} batch={batch_index}/{len(loader)} "
                     f"loss={totals['loss'] / total:.4f} id={totals['id'] / total:.4f} "
                     f"tri={totals['tri'] / total:.4f} cvpa={totals['cvpa'] / total:.4f} "
-                    f"adv={totals['adv'] / total:.4f} acc={correct / total:.4f} "
-                    f"grl={grl_weight:.3f}",
+                    f"adv={totals['adv'] / total:.4f} cvt={totals['cvt'] / total:.4f} "
+                    f"acc={correct / total:.4f} grl={grl_weight:.3f}",
                     flush=True,
                 )
 

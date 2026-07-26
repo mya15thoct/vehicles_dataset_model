@@ -33,7 +33,18 @@ def extract_features(
     device: torch.device,
     height: int,
     width: int,
+    use_condition: bool | None = None,
 ) -> torch.Tensor:
+    """Extract L2-normalized embeddings.
+
+    `use_condition` routes each sample through its condition branch when the
+    model has a condition-adaptive neck; it defaults to whatever the model was
+    built with. Pass False to force the shared-branch fallback, which is what
+    the cross-condition protocol needs when the test condition is unseen.
+    """
+    if use_condition is None:
+        use_condition = bool(getattr(model, "use_can", False))
+
     dataset = CropDataset(rows, build_eval_transform(height, width))
     loader = DataLoader(
         dataset,
@@ -45,8 +56,9 @@ def extract_features(
     features = [None] * len(rows)
     model.eval()
     with torch.no_grad():
-        for batch_index, (images, indices) in enumerate(loader, start=1):
-            embeddings = model(images.to(device)).cpu()
+        for batch_index, (images, indices, conditions) in enumerate(loader, start=1):
+            condition = conditions.to(device) if use_condition else None
+            embeddings = model(images.to(device), condition=condition).cpu()
             for offset, row_index in enumerate(indices.tolist()):
                 features[row_index] = embeddings[offset]
             if batch_index % 20 == 0 or batch_index == len(loader):
@@ -56,6 +68,39 @@ def extract_features(
                     flush=True,
                 )
     return torch.stack(features, dim=0)
+
+
+def apply_cross_view_transition(
+    model,
+    query_features: torch.Tensor,
+    gallery_features: torch.Tensor,
+    device: torch.device,
+    mode: str = "gallery",
+    batch_size: int = 512,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Map features through the learned view transition before matching.
+
+    mode='gallery' pushes the before-view gallery into the after-view subspace
+    (the query's own space); mode='query' does the reverse. Returns the pair of
+    feature matrices to score against each other.
+    """
+    if getattr(model, "transition", None) is None:
+        return query_features, gallery_features
+
+    def transform(features: torch.Tensor, direction: str) -> torch.Tensor:
+        chunks = []
+        model.eval()
+        with torch.no_grad():
+            for start in range(0, features.shape[0], batch_size):
+                chunk = features[start:start + batch_size].to(device)
+                chunks.append(model.transform(chunk, direction).cpu())
+        return torch.cat(chunks, dim=0)
+
+    if mode == "gallery":
+        return query_features, transform(gallery_features, "b2a")
+    if mode == "query":
+        return transform(query_features, "a2b"), gallery_features
+    raise ValueError(f"mode must be 'gallery' or 'query', got {mode!r}")
 
 
 def compute_metrics(
@@ -122,9 +167,20 @@ def evaluate_retrieval(
     device: torch.device,
     height: int,
     width: int,
+    cvt_mode: str = "gallery",
 ) -> dict:
+    """Validation-time retrieval.
+
+    When the model carries a transition module the same mapping used at test
+    time is applied here too, so validation-mAP model selection optimizes the
+    procedure that will actually be reported.
+    """
     query_features = extract_features(model, query_rows, batch_size, num_workers, device, height, width)
     gallery_features = extract_features(model, gallery_rows, batch_size, num_workers, device, height, width)
+    if getattr(model, "transition", None) is not None and cvt_mode != "off":
+        query_features, gallery_features = apply_cross_view_transition(
+            model, query_features, gallery_features, device, mode=cvt_mode
+        )
     return compute_metrics(
         query_features,
         gallery_features,

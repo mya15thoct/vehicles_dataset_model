@@ -15,7 +15,12 @@ from pathlib import Path
 import torch
 
 from dataset import identity, read_csv
-from metrics import compute_metrics, compute_metrics_from_dist, extract_features
+from metrics import (
+    apply_cross_view_transition,
+    compute_metrics,
+    compute_metrics_from_dist,
+    extract_features,
+)
 from model import WICVNet
 
 
@@ -32,6 +37,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--k1", type=int, default=20)
     parser.add_argument("--k2", type=int, default=6)
     parser.add_argument("--lambda-value", type=float, default=0.3)
+    parser.add_argument(
+        "--cvt-mode",
+        default="gallery",
+        choices=["gallery", "query", "off"],
+        help="Where to apply the learned cross-view transition at inference "
+        "(ignored if the checkpoint has no CVT module).",
+    )
+    parser.add_argument(
+        "--no-condition-routing",
+        action="store_true",
+        help="Force the shared normalization branch instead of the per-condition "
+        "one. Required when the test condition was unseen during training.",
+    )
     return parser.parse_args()
 
 
@@ -70,6 +88,8 @@ def main() -> int:
         pretrained=False,
         height=height,
         width=width,
+        use_cvt=checkpoint.get("use_cvt", False),
+        use_can=checkpoint.get("use_can", False),
     )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
@@ -79,12 +99,18 @@ def main() -> int:
     gallery_rows = read_csv(Path(args.gallery))
     print(f"query images: {len(query_rows)}, gallery images: {len(gallery_rows)}")
 
+    use_condition = model.use_can and not args.no_condition_routing
     query_features = extract_features(
-        model, query_rows, args.batch_size, args.num_workers, device, height, width
+        model, query_rows, args.batch_size, args.num_workers, device, height, width, use_condition
     )
     gallery_features = extract_features(
-        model, gallery_rows, args.batch_size, args.num_workers, device, height, width
+        model, gallery_rows, args.batch_size, args.num_workers, device, height, width, use_condition
     )
+    if model.transition is not None and args.cvt_mode != "off":
+        print(f"Applying cross-view transition (mode={args.cvt_mode})...", flush=True)
+        query_features, gallery_features = apply_cross_view_transition(
+            model, query_features, gallery_features, device, mode=args.cvt_mode
+        )
     query_ids = [identity(row) for row in query_rows]
     gallery_ids = [identity(row) for row in gallery_rows]
 
