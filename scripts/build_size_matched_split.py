@@ -24,7 +24,7 @@ import csv
 import json
 import math
 from collections import defaultdict
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 FIELDS = [
     "condition",
@@ -71,14 +71,30 @@ def write_csv(path: Path, rows: list[dict]) -> None:
             writer.writerow({field: row.get(field, "") for field in FIELDS})
 
 
-def load_sizes(manifest_path: Path) -> dict[str, float]:
+def crop_key(crop_path: str) -> str:
+    """Join key for manifest <-> split.
+
+    Full paths are unreliable here: the split CSVs were rewritten when the data
+    moved from /mnt/ngan to /mnt/recover/ngan while the manifest kept the old
+    prefix, so a full-path join silently matches nothing. Crop filenames encode
+    condition, view, identity and frame, so the basename is unique and stable
+    across any prefix rewrite.
+    """
+    return PurePosixPath(crop_path.replace("\\", "/")).name
+
+
+def load_sizes(manifest_path: Path) -> tuple[dict[str, float], int]:
     sizes: dict[str, float] = {}
+    collisions = 0
     with manifest_path.open("r", newline="", encoding="utf-8") as fh:
         for row in csv.DictReader(fh):
             width = max(0.0, float(row["xbr"]) - float(row["xtl"]))
             height = max(0.0, float(row["ybr"]) - float(row["ytl"]))
-            sizes[row["crop_path"]] = math.sqrt(width * height)
-    return sizes
+            key = crop_key(row["crop_path"])
+            if key in sizes:
+                collisions += 1
+            sizes[key] = math.sqrt(width * height)
+    return sizes, collisions
 
 
 def identity(row: dict) -> str:
@@ -101,11 +117,18 @@ def main() -> int:
 
     if not manifest_path.exists():
         raise SystemExit(f"Manifest not found: {manifest_path}")
-    sizes = load_sizes(manifest_path)
+    sizes, collisions = load_sizes(manifest_path)
     print(f"Loaded {len(sizes):,} crop sizes from {manifest_path}")
+    if collisions:
+        print(
+            f"WARNING: {collisions} crop filenames appeared more than once in the manifest; "
+            "the last size seen wins. Filenames were assumed unique."
+        )
 
     loaded: dict[str, list[dict]] = {}
     missing_size = 0
+    total_rows = 0
+    unmatched_examples: list[str] = []
     for name in args.splits:
         path = split_root / f"{name}.csv"
         if not path.exists():
@@ -113,16 +136,42 @@ def main() -> int:
             continue
         rows = read_csv(path)
         for row in rows:
-            row["_size"] = sizes.get(row["crop_path"])
+            total_rows += 1
+            row["_size"] = sizes.get(crop_key(row["crop_path"]))
             if row["_size"] is None:
                 missing_size += 1
+                if len(unmatched_examples) < 3:
+                    unmatched_examples.append(row["crop_path"])
         loaded[name] = rows
 
-    if missing_size:
+    if not total_rows:
+        raise SystemExit(f"No split rows read from {split_root}")
+
+    matched = total_rows - missing_size
+    print(f"Joined {matched:,}/{total_rows:,} split rows to the manifest ({matched / total_rows * 100:.1f}%)")
+
+    # Failing here beats writing empty CSVs that only blow up later inside
+    # evaluate.py with an unrelated-looking tensor error.
+    if matched == 0:
+        sample_manifest = next(iter(sizes)) if sizes else "<manifest empty>"
+        raise SystemExit(
+            "No split row matched the manifest, so every filtered file would be empty.\n"
+            f"  split crop_path example   : {unmatched_examples[0] if unmatched_examples else 'n/a'}\n"
+            f"  manifest filename example : {sample_manifest}\n"
+            "Filenames are compared, not full paths, so this means the split and the "
+            "manifest were built from different crop exports. Rebuild one of them so both "
+            "refer to the same crops."
+        )
+    if matched < total_rows * 0.5:
         print(
-            f"WARNING: {missing_size} split rows had no matching crop_path in the manifest "
-            "and will be dropped. Check that the manifest and the split were built from the "
-            "same crop export."
+            f"WARNING: only {matched / total_rows * 100:.1f}% of split rows matched. The result "
+            "below covers just that subset and is probably not what you want; check that the "
+            "split and the manifest come from the same crop export."
+        )
+    elif missing_size:
+        print(
+            f"NOTE: {missing_size:,} split rows had no manifest entry and are dropped. "
+            f"Example: {unmatched_examples[0] if unmatched_examples else 'n/a'}"
         )
 
     # The only threshold every condition can meet is the largest per-stream
