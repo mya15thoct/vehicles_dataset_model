@@ -143,6 +143,7 @@ def draw_centered_text(
 
 
 def save_image(image: Image.Image, path: Path, quality: int = 95) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     save_kwargs = {"dpi": (300, 300)}
     if path.suffix.lower() in {".jpg", ".jpeg"}:
         save_kwargs.update({"quality": quality, "subsampling": 0})
@@ -1073,6 +1074,113 @@ def make_identity_coverage_figure(stats: dict, output_root: Path) -> Path:
     return path
 
 
+def make_class_examples_figure(dataset: list[dict], output_root: Path, crop_size: int) -> list[dict]:
+    """Grid of real crops: one row per vehicle class, one column per condition.
+
+    A reader who has never seen the data cannot judge the difficulty from
+    tables alone. This shows what a bus, car, motorbike and truck actually look
+    like here, and how each degrades from morning/no-rain to evening/rain --
+    the class axis and the condition axis in a single figure.
+
+    Cells pick the largest crop available for that (class, condition) pair, so
+    the example is representative of a clean annotation rather than a marginal
+    one.
+    """
+    title_font = load_font(26, bold=True)
+    subtitle_font = load_font(15)
+    header_font = load_font(16, bold=True)
+    row_font = load_font(17, bold=True)
+    caption_font = load_font(13)
+
+    classes = ["bus", "car", "motorbike", "truck"]
+    conditions = [c["name"] for c in dataset]
+    metadata = []
+
+    # best[(class, condition)] = (area, view, record, box)
+    best: dict[tuple[str, str], tuple] = {}
+    for condition in dataset:
+        for view_name in VIEW_ORDER:
+            view_data = condition["views"].get(view_name)
+            if not view_data:
+                continue
+            for record in view_data["records"]:
+                if not image_path_for(view_data, record).exists():
+                    continue
+                for box in record["boxes"]:
+                    label = box.get("label")
+                    if label not in classes:
+                        continue
+                    key = (label, condition["name"])
+                    area = box_area(box)
+                    if area <= 0:
+                        continue
+                    if key not in best or area > best[key][0]:
+                        best[key] = (area, view_name, record, box)
+
+    label_col_w = 132
+    cell = crop_size
+    gap = 14
+    header_h = 34
+    title_h = 92
+    width = label_col_w + len(conditions) * (cell + gap) + gap
+    height = title_h + header_h + len(classes) * (cell + gap) + 34
+
+    figure = Image.new("RGB", (width, height), BG)
+    draw = ImageDraw.Draw(figure)
+    draw.text((24, 22), "Vehicle class examples across conditions", fill=INK, font=title_font)
+    draw.text(
+        (24, 58),
+        "Largest annotated crop for each class and condition, shown at native aspect ratio.",
+        fill=MUTED,
+        font=subtitle_font,
+    )
+
+    for col, condition_name in enumerate(conditions):
+        x = label_col_w + col * (cell + gap)
+        text = CONDITION_LABELS.get(condition_name, condition_name)
+        tw, _ = text_size(draw, text, header_font)
+        draw.text((x + cell / 2 - tw / 2, title_h + 6), text, fill=INK, font=header_font)
+
+    for row, label in enumerate(classes):
+        y = title_h + header_h + row * (cell + gap)
+        draw.text((24, y + cell / 2 - 10), CLASS_LABELS.get(label, label), fill=INK, font=row_font)
+        for col, condition_name in enumerate(conditions):
+            x = label_col_w + col * (cell + gap)
+            entry = best.get((label, condition_name))
+            if entry is None:
+                draw.rounded_rectangle((x, y, x + cell, y + cell), radius=8, fill=(246, 247, 249), outline=GRID)
+                note = "none"
+                tw, th = text_size(draw, note, caption_font)
+                draw.text((x + cell / 2 - tw / 2, y + cell / 2 - th / 2), note, fill=MUTED, font=caption_font)
+                continue
+
+            _, view_name, record, box = entry
+            view_data = next(c for c in dataset if c["name"] == condition_name)["views"][view_name]
+            patch = crop_box(image_path_for(view_data, record), box, cell)
+            figure.paste(patch, (int(x), int(y)))
+            draw.rounded_rectangle(
+                (x, y, x + cell, y + cell),
+                radius=8,
+                outline=CLASS_COLORS.get(label, ACCENT),
+                width=3,
+            )
+            metadata.append(
+                {
+                    "figure": "figure_07_class_examples",
+                    "class": label,
+                    "condition": condition_name,
+                    "view": view_name,
+                    "frame": record["frame_name"],
+                    "vehicle_id": box.get("id"),
+                }
+            )
+
+    path = output_root / "figure_07_class_examples.jpg"
+    save_image(figure, path)
+    print(f"Saved {path}")
+    return metadata
+
+
 def crop_box(image_path: Path, box: dict, crop_size: int) -> Image.Image:
     with Image.open(image_path) as image:
         image = image.convert("RGB")
@@ -1214,6 +1322,7 @@ def main() -> int:
     raw_stats = compute_stats(dataset)
     make_view_asymmetry_figure(raw_stats, output_root)
     make_identity_coverage_figure(raw_stats, output_root)
+    metadata.extend(make_class_examples_figure(dataset, output_root, args.crop_size))
     metadata.extend(make_cross_view_pairs(dataset, output_root, args.crop_size))
 
     metadata_path = output_root / "figure_metadata.json"
