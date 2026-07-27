@@ -54,9 +54,28 @@ CONDITION_COLORS = {
 }
 VIEW_COLORS = {"before": (62, 126, 184), "after": (220, 132, 59)}
 
-# Size buckets follow the convention used by traffic-dataset papers: the edge
-# length of a square of equal area, so "32" means the crop is as big as 32x32.
-SIZE_EDGES = [0, 16, 32, 48, 64, 80, 96, 112, 128, 160]
+# Size is reported as the edge length of a square of equal area, so "32" means
+# the crop covers as many pixels as a 32x32 box. The bucket edges are derived
+# from the data rather than fixed: this dataset is filmed close to the traffic,
+# so its crops are an order of magnitude larger than in city-wide traffic
+# datasets, and a fixed 0-160 scale would collapse every crop into one bar.
+NICE_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 150, 200, 250, 500, 1000, 2000]
+
+
+def nice_step(raw: float) -> int:
+    for step in NICE_STEPS:
+        if raw <= step:
+            return step
+    return NICE_STEPS[-1]
+
+
+def derive_size_edges(sizes: list[float], num_buckets: int = 9) -> list[int]:
+    """Pick round bucket edges covering the bulk of the observed sizes."""
+    if not sizes:
+        return [0, 16, 32, 48, 64, 80, 96, 112, 128, 160]
+    upper = percentile(sorted(sizes), 0.98)
+    step = nice_step(upper / num_buckets)
+    return [step * i for i in range(num_buckets + 1)]
 
 
 def parse_args() -> argparse.Namespace:
@@ -93,17 +112,17 @@ def normalize_view(view: str) -> str:
     return view
 
 
-def size_bucket_label(index: int) -> str:
+def size_bucket_label(index: int, edges: list[int]) -> str:
     if index == 0:
-        return f"<{SIZE_EDGES[1]}"
-    if index >= len(SIZE_EDGES) - 1:
-        return f">={SIZE_EDGES[-1]}"
-    return f"{SIZE_EDGES[index]}-{SIZE_EDGES[index + 1]}"
+        return f"<{edges[1]}"
+    if index >= len(edges) - 1:
+        return f">={edges[-1]}"
+    return f"{edges[index]}-{edges[index + 1]}"
 
 
-def size_bucket(edge_length: float) -> int:
-    for index in range(len(SIZE_EDGES) - 1, 0, -1):
-        if edge_length >= SIZE_EDGES[index]:
+def size_bucket(edge_length: float, edges: list[int]) -> int:
+    for index in range(len(edges) - 1, 0, -1):
+        if edge_length >= edges[index]:
             return index
     return 0
 
@@ -123,7 +142,7 @@ def analyze(manifest_path: Path) -> dict:
     sizes_all: list[float] = []
     sizes_by_condition: dict[str, list[float]] = defaultdict(list)
     sizes_by_view: dict[str, list[float]] = defaultdict(list)
-    size_hist_by_condition: dict[str, Counter] = defaultdict(Counter)
+    sizes_by_condition_view: dict[tuple[str, str], list[float]] = defaultdict(list)
 
     per_frame: Counter = Counter()
     per_frame_condition: dict[tuple, str] = {}
@@ -144,7 +163,7 @@ def analyze(manifest_path: Path) -> dict:
             sizes_all.append(edge)
             sizes_by_condition[condition].append(edge)
             sizes_by_view[view].append(edge)
-            size_hist_by_condition[condition][size_bucket(edge)] += 1
+            sizes_by_condition_view[(condition, view)].append(edge)
 
             frame_key = (condition, view, row["frame_id"])
             per_frame[frame_key] += 1
@@ -177,6 +196,13 @@ def analyze(manifest_path: Path) -> dict:
     for (_, _, view), count in per_identity_view.items():
         identity_by_view[view].append(count)
 
+    # Bucket edges can only be chosen once the full size range is known.
+    edges = derive_size_edges(sizes_all)
+    size_hist_by_condition: dict[str, Counter] = defaultdict(Counter)
+    for condition, values in sizes_by_condition.items():
+        for value in values:
+            size_hist_by_condition[condition][size_bucket(value, edges)] += 1
+
     small_16 = sum(1 for value in sizes_all if value < 16)
     small_32 = sum(1 for value in sizes_all if value < 32)
 
@@ -186,10 +212,14 @@ def analyze(manifest_path: Path) -> dict:
             "overall": summarize(sizes_all),
             "by_condition": {c: summarize(v) for c, v in sizes_by_condition.items()},
             "by_view": {v: summarize(vals) for v, vals in sizes_by_view.items()},
+            "by_condition_view": {
+                f"{c}|{v}": summarize(vals) for (c, v), vals in sizes_by_condition_view.items()
+            },
             "fraction_below_16px": small_16 / total_rows if total_rows else 0.0,
             "fraction_below_32px": small_32 / total_rows if total_rows else 0.0,
+            "bucket_edges": edges,
             "histogram_by_condition": {
-                c: {size_bucket_label(i): hist.get(i, 0) for i in range(len(SIZE_EDGES))}
+                c: {size_bucket_label(i, edges): hist.get(i, 0) for i in range(len(edges))}
                 for c, hist in size_hist_by_condition.items()
             },
         },
@@ -272,7 +302,8 @@ def draw_grouped_bars(
 
 def make_size_figure(stats: dict, output_root: Path) -> Path:
     hist = stats["object_size"]["histogram_by_condition"]
-    categories = [size_bucket_label(i) for i in range(len(SIZE_EDGES))]
+    edges = stats["object_size"]["bucket_edges"]
+    categories = [size_bucket_label(i, edges) for i in range(len(edges))]
     series = {}
     colors = {}
     for condition in CONDITION_ORDER:
@@ -283,9 +314,16 @@ def make_size_figure(stats: dict, output_root: Path) -> Path:
         colors[label] = CONDITION_COLORS[condition]
 
     overall = stats["object_size"]["overall"]
+    by_view = stats["object_size"]["by_view"]
+    view_note = ""
+    if "before" in by_view and "after" in by_view:
+        view_note = (
+            f" Before-view median {by_view['before']['median']:.0f} px vs. "
+            f"after-view {by_view['after']['median']:.0f} px."
+        )
     subtitle = (
-        f"Equal-area edge length in pixels. Median {overall['median']:.0f} px; "
-        f"{stats['object_size']['fraction_below_32px'] * 100:.1f}% of crops are smaller than 32x32."
+        f"Equal-area edge length in pixels (median {overall['median']:.0f}, "
+        f"p10 {overall['p10']:.0f}, p90 {overall['p90']:.0f})." + view_note
     )
     image = draw_grouped_bars(
         "Annotated object size distribution", subtitle, categories, series, colors, width=1080
@@ -403,6 +441,16 @@ def write_markdown(stats: dict, path: Path) -> None:
         f"Crops smaller than 16x16: {size['fraction_below_16px'] * 100:.2f}%. "
         f"Smaller than 32x32: {size['fraction_below_32px'] * 100:.2f}%.",
         "",
+        "Read this the right way round. City-wide traffic benchmarks report a",
+        "small-object problem; this dataset does not have one, because it is",
+        "filmed close to the traffic. That is a property worth stating as a",
+        "distinguishing feature -- but it also means crop resolution is NOT the",
+        "explanation for any per-condition accuracy gap. If evening conditions",
+        "are harder while their crops are the same size, the cause is",
+        "photometric (low light, motion blur, rain streaks), not geometric, and",
+        "the discussion must say so rather than reaching for the usual",
+        "small-object argument.",
+        "",
         "## Scene density (annotated vehicles per frame)",
         "",
         "| Group | Frames | Median | Mean | p90 | Max |",
@@ -440,8 +488,10 @@ def write_markdown(stats: dict, path: Path) -> None:
         "",
         "## How to use these in the paper",
         "",
-        "- The object-size table is what explains the per-condition accuracy gap:",
-        "  quote the median crop size for the hardest condition next to its mAP.",
+        "- Object size distinguishes this dataset from city-wide traffic benchmarks",
+        "  (close-range capture, high-detail crops). Check the per-condition medians",
+        "  before attributing any accuracy gap to crop resolution -- if they are",
+        "  comparable, the gap is photometric and the discussion must say that.",
         "- The density numbers are what back the \"dense mixed traffic\" claim in the",
         "  abstract. Without them that claim is unsupported.",
         "- Instances-per-identity resolves the TODO in the dataset section that asks",
