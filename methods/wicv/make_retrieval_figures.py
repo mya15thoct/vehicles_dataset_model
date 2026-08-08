@@ -175,20 +175,21 @@ def main() -> int:
                 continue
             strips = [compose_strip(query_row, ranked) for query_row, ranked, _ in cases]
 
-            # Each case is also written on its own, without the header that the
-            # contact sheet carries: a strip destined for the manuscript needs
-            # no title, because the caption says what it is. The stacked sheet
-            # is for browsing; the numbered singles are what gets published.
-            candidate_root = output_root / "candidates"
-            candidate_root.mkdir(parents=True, exist_ok=True)
-            for index, strip in enumerate(strips):
-                single = candidate_root / f"retrieval_{condition}_{kind}_{index:02d}.jpg"
-                strip.save(single, quality=94)
+            # Everything lands under candidates/, one folder per condition and
+            # kind: _sheet.jpg to browse, numbered singles to use. Nothing is
+            # written to the output root, so whatever ends up there is what was
+            # deliberately copied in for the manuscript.
+            folder = output_root / "candidates" / f"{condition}_{kind}"
+            folder.mkdir(parents=True, exist_ok=True)
 
-            sheet = stack_strips(strips, f"{condition} - {kind} cases (query blue, correct green, wrong red)")
-            out_path = output_root / f"retrieval_{condition}_{kind}.jpg"
-            sheet.save(out_path, quality=92)
-            print(f"Saved: {out_path}  (+{len(strips)} singles in candidates/)", flush=True)
+            # Singles carry no header: the caption in the paper says what they
+            # are, so a title baked into the image would only duplicate it.
+            for index, strip in enumerate(strips):
+                strip.save(folder / f"{index:02d}.jpg", quality=94)
+
+            sheet = stack_strips(strips, f"{condition} - {kind} (query blue, correct green, wrong red)")
+            sheet.save(folder / "_sheet.jpg", quality=92)
+            print(f"Saved: {folder}  ({len(strips)} cases + _sheet.jpg)", flush=True)
 
     (output_root / "retrieval_metadata.json").write_text(
         json.dumps(metadata, indent=2), encoding="utf-8"
