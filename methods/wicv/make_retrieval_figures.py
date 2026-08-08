@@ -39,8 +39,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gallery", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/gallery.csv")
     parser.add_argument("--output-root", default="docs/figures/retrieval")
     parser.add_argument("--topk", type=int, default=5)
-    parser.add_argument("--success-per-condition", type=int, default=3)
-    parser.add_argument("--failure-per-condition", type=int, default=3)
+    parser.add_argument(
+        "--success-per-condition",
+        type=int,
+        default=8,
+        help="Cases to export per condition. Each is written on its own into "
+        "candidates/ so a good-looking one can be picked by hand, and all of "
+        "them are also stacked into one browsing sheet.",
+    )
+    parser.add_argument("--failure-per-condition", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=42)
@@ -167,10 +174,21 @@ def main() -> int:
                 print(f"{condition}: no {kind} cases found", flush=True)
                 continue
             strips = [compose_strip(query_row, ranked) for query_row, ranked, _ in cases]
+
+            # Each case is also written on its own, without the header that the
+            # contact sheet carries: a strip destined for the manuscript needs
+            # no title, because the caption says what it is. The stacked sheet
+            # is for browsing; the numbered singles are what gets published.
+            candidate_root = output_root / "candidates"
+            candidate_root.mkdir(parents=True, exist_ok=True)
+            for index, strip in enumerate(strips):
+                single = candidate_root / f"retrieval_{condition}_{kind}_{index:02d}.jpg"
+                strip.save(single, quality=94)
+
             sheet = stack_strips(strips, f"{condition} - {kind} cases (query blue, correct green, wrong red)")
             out_path = output_root / f"retrieval_{condition}_{kind}.jpg"
             sheet.save(out_path, quality=92)
-            print(f"Saved: {out_path}", flush=True)
+            print(f"Saved: {out_path}  (+{len(strips)} singles in candidates/)", flush=True)
 
     (output_root / "retrieval_metadata.json").write_text(
         json.dumps(metadata, indent=2), encoding="utf-8"
