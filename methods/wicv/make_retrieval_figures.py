@@ -48,6 +48,13 @@ def parse_args() -> argparse.Namespace:
         "them are also stacked into one browsing sheet.",
     )
     parser.add_argument("--failure-per-condition", type=int, default=8)
+    parser.add_argument(
+        "--selection",
+        default=None,
+        help='JSON mapping "<condition>_<kind>" to the candidate index that '
+        'should become the top-level figure, e.g. {"evening_rain_success": 3}. '
+        "Keys left out default to 0.",
+    )
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=42)
@@ -132,6 +139,13 @@ def main() -> int:
 
     output_root = Path(args.output_root)
     output_root.mkdir(parents=True, exist_ok=True)
+    selection = {}
+    if args.selection:
+        selection_path = Path(args.selection)
+        if not selection_path.exists():
+            print(f"Missing selection file: {selection_path}", file=sys.stderr)
+            return 1
+        selection = json.loads(selection_path.read_text(encoding="utf-8"))
     metadata = {}
 
     conditions = sorted({row["condition"] for row in query_rows})
@@ -174,22 +188,27 @@ def main() -> int:
                 print(f"{condition}: no {kind} cases found", flush=True)
                 continue
             strips = [compose_strip(query_row, ranked) for query_row, ranked, _ in cases]
+            key = f"{condition}_{kind}"
 
-            # Everything lands under candidates/, one folder per condition and
-            # kind: _sheet.jpg to browse, numbered singles to use. Nothing is
-            # written to the output root, so whatever ends up there is what was
-            # deliberately copied in for the manuscript.
-            folder = output_root / "candidates" / f"{condition}_{kind}"
+            # Alternatives live in candidates/, one folder per condition and
+            # kind, with a sheet to browse them.
+            folder = output_root / "candidates" / key
             folder.mkdir(parents=True, exist_ok=True)
-
-            # Singles carry no header: the caption in the paper says what they
-            # are, so a title baked into the image would only duplicate it.
             for index, strip in enumerate(strips):
                 strip.save(folder / f"{index:02d}.jpg", quality=94)
-
             sheet = stack_strips(strips, f"{condition} - {kind} (query blue, correct green, wrong red)")
             sheet.save(folder / "_sheet.jpg", quality=92)
-            print(f"Saved: {folder}  ({len(strips)} cases + _sheet.jpg)", flush=True)
+
+            # The one that goes in the paper sits at the top level, ready to
+            # reference. It carries no header, because the caption says what it
+            # is. --selection swaps which candidate this is.
+            index = selection.get(key, 0)
+            if index >= len(strips):
+                print(f"  selection {key}={index} out of range, using 0", flush=True)
+                index = 0
+            final = output_root / f"retrieval_{key}.jpg"
+            strips[index].save(final, quality=94)
+            print(f"Saved: {final}   (case {index} of {len(strips)}; alternatives in candidates/{key}/)", flush=True)
 
     (output_root / "retrieval_metadata.json").write_text(
         json.dumps(metadata, indent=2), encoding="utf-8"
