@@ -102,6 +102,19 @@ def parse_args() -> argparse.Namespace:
         "candidate index per cell. Cells absent from the file keep the "
         "automatic choice.",
     )
+    parser.add_argument(
+        "--candidate-classes",
+        nargs="+",
+        default=None,
+        choices=CLASS_ORDER,
+        help="Limit --export-candidates to these classes. Useful when only one "
+        "or two rows of the grid need better examples.",
+    )
+    parser.add_argument(
+        "--skip-pair-candidates",
+        action="store_true",
+        help="Skip the cross-view pair candidates during --export-candidates.",
+    )
     return parser.parse_args()
 
 
@@ -373,13 +386,20 @@ def contact_sheet(images: list[Image.Image], cols: int = 4, cell: int = 260) -> 
     return sheet
 
 
-def export_candidates(streams: dict, output_root: Path, limit: int) -> None:
+def export_candidates(
+    streams: dict,
+    output_root: Path,
+    limit: int,
+    classes: list[str] | None = None,
+    skip_pairs: bool = False,
+) -> None:
     root = output_root / "candidates"
+    wanted = classes or CLASS_ORDER
     class_ranked = rank_class_candidates(streams, limit)
-    pair_ranked = rank_pair_candidates(streams, limit)
+    pair_ranked = {} if skip_pairs else rank_pair_candidates(streams, limit)
     selection = {"classes": {}, "pairs": {}}
 
-    for label in CLASS_ORDER:
+    for label in wanted:
         for condition in CONDITION_ORDER:
             entries = class_ranked.get((label, condition), [])
             if not entries:
@@ -652,7 +672,13 @@ def main() -> int:
         print(f"Loaded {len(streams)} annotated streams")
 
     if args.export_candidates:
-        export_candidates(streams, output_root, args.export_candidates)
+        export_candidates(
+            streams,
+            output_root,
+            args.export_candidates,
+            classes=args.candidate_classes,
+            skip_pairs=args.skip_pair_candidates,
+        )
         return 0
 
     if "examples" in args.only:
