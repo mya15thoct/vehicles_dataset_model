@@ -103,6 +103,15 @@ def parse_args() -> argparse.Namespace:
         "automatic choice.",
     )
     parser.add_argument(
+        "--chosen-dir",
+        default=None,
+        help="Folder of hand-picked images that override the automatic choice. "
+        "Name them <class>__<condition>.jpg for the class grid and "
+        "<condition>_before.jpg / <condition>_after.jpg for the pair grid; any "
+        "cell without a file keeps its automatic pick. Copying files is all "
+        "that is needed -- no JSON.",
+    )
+    parser.add_argument(
         "--candidate-classes",
         nargs="+",
         default=None,
@@ -116,6 +125,22 @@ def parse_args() -> argparse.Namespace:
         help="Skip the cross-view pair candidates during --export-candidates.",
     )
     return parser.parse_args()
+
+
+def find_chosen(chosen_dir: Path | None, stem: str) -> Image.Image | None:
+    """Return a hand-picked image for a cell, if one was dropped in.
+
+    Accepts any common extension so a file can simply be copied and renamed
+    without worrying about what the exporter wrote.
+    """
+    if chosen_dir is None:
+        return None
+    for suffix in (".jpg", ".jpeg", ".png", ".JPG", ".PNG"):
+        path = chosen_dir / f"{stem}{suffix}"
+        if path.exists():
+            with Image.open(path) as source:
+                return source.convert("RGB")
+    return None
 
 
 def load_selection(path: str | None) -> dict:
@@ -516,7 +541,12 @@ def make_dataset_examples(streams: dict, output_root: Path) -> None:
     save(fig, output_root, "fig_dataset_examples", photo=True)
 
 
-def make_cross_view_pairs(streams: dict, output_root: Path, selection: dict | None = None) -> None:
+def make_cross_view_pairs(
+    streams: dict,
+    output_root: Path,
+    selection: dict | None = None,
+    chosen_dir: Path | None = None,
+) -> None:
     """The same vehicle seen from both cameras, one column per condition.
 
     This is the figure that states the problem: the two rows share an identity
@@ -527,6 +557,15 @@ def make_cross_view_pairs(streams: dict, output_root: Path, selection: dict | No
 
     chosen_by_condition: dict[str, tuple] = {}
     for condition in CONDITION_ORDER:
+        manual_b = find_chosen(chosen_dir, f"{condition}_before")
+        manual_a = find_chosen(chosen_dir, f"{condition}_after")
+        if manual_b is not None and manual_a is not None:
+            chosen_by_condition[condition] = (
+                None, pad_square(manual_b, 420), pad_square(manual_a, 420), ""
+            )
+            print(f"  using hand-picked pair for {condition}")
+            continue
+
         entries = ranked.get(condition, [])
         if not entries:
             continue
@@ -558,7 +597,12 @@ def make_cross_view_pairs(streams: dict, output_root: Path, selection: dict | No
             vehicle_id, b_crop, a_crop, label = chosen
             ax.imshow(b_crop if view == "before" else a_crop)
             if row == 0:
-                ax.set_title(f"{CONDITION_LABELS[condition]}\nID {vehicle_id} ({label})", pad=3)
+                # Hand-picked panels carry no identity, so the header drops to
+                # the condition alone rather than printing "ID None".
+                title = CONDITION_LABELS[condition]
+                if vehicle_id is not None:
+                    title += f"\nID {vehicle_id} ({label})"
+                ax.set_title(title, pad=3)
             if col == 0:
                 ax.set_ylabel(VIEW_LABELS[view], labelpad=4)
 
@@ -566,7 +610,12 @@ def make_cross_view_pairs(streams: dict, output_root: Path, selection: dict | No
     save(fig, output_root, "fig_cross_view_pairs", photo=True)
 
 
-def make_class_examples(streams: dict, output_root: Path, selection: dict | None = None) -> None:
+def make_class_examples(
+    streams: dict,
+    output_root: Path,
+    selection: dict | None = None,
+    chosen_dir: Path | None = None,
+) -> None:
     """Vehicle class (rows) against condition (columns).
 
     Cells take the largest annotated crop for the pair, so the example shows a
@@ -577,6 +626,11 @@ def make_class_examples(streams: dict, output_root: Path, selection: dict | None
 
     crops: dict[tuple[str, str], Image.Image] = {}
     for key, entries in ranked.items():
+        manual = find_chosen(chosen_dir, f"{key[0]}__{key[1]}")
+        if manual is not None:
+            crops[key] = pad_square(manual, 360)
+            print(f"  using hand-picked {key[0]}__{key[1]}")
+            continue
         index = chosen.get(f"{key[0]}|{key[1]}", 0)
         if index >= len(entries):
             print(f"  selection {key[0]}|{key[1]}={index} out of range, using 0")
@@ -681,12 +735,16 @@ def main() -> int:
         )
         return 0
 
+    chosen_dir = Path(args.chosen_dir) if args.chosen_dir else None
+    if chosen_dir and not chosen_dir.exists():
+        raise SystemExit(f"--chosen-dir not found: {chosen_dir}")
+
     if "examples" in args.only:
         make_dataset_examples(streams, output_root)
     if "pairs" in args.only:
-        make_cross_view_pairs(streams, output_root, selection)
+        make_cross_view_pairs(streams, output_root, selection, chosen_dir)
     if "classes" in args.only:
-        make_class_examples(streams, output_root, selection)
+        make_class_examples(streams, output_root, selection, chosen_dir)
     if "size" in args.only:
         make_crop_size_figure(Path(args.manifest), output_root)
 
