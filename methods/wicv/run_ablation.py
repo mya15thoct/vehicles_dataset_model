@@ -30,6 +30,12 @@ VARIANTS: dict[str, list[str]] = {
     "no_cvpa": ["--no-cvpa"],
     "no_cvtri": ["--plain-triplet"],
     "full": [],
+    # The two variants above still run the adversarial term at its default
+    # weight, which costs several mAP on its own, so neither isolates a
+    # cross-view component against the final objective. These do: each keeps
+    # exactly one proposed component, with the adversarial term off.
+    "cvpa_only": ["--plain-triplet", "--no-adv"],
+    "cvtri_only": ["--no-cvpa", "--no-adv"],
     # v2 structural modules. FCA is dropped from the v2 line because the
     # sensitivity sweep showed adversarial erasure of the condition does not
     # help; CAN replaces it by normalizing condition statistics instead.
