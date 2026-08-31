@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--patience", type=int, default=4)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--w-adv", type=float, default=None, help="Override adversarial weight.")
+    parser.add_argument("--w-cvpa", type=float, default=None, help="Override prototype-alignment weight.")
     parser.add_argument("--skip-existing", action="store_true")
     return parser.parse_args()
 
@@ -79,6 +80,8 @@ def main() -> int:
             ]
             if args.w_adv is not None:
                 train_command += ["--w-adv", str(args.w_adv)]
+            if args.w_cvpa is not None:
+                train_command += ["--w-cvpa", str(args.w_cvpa)]
             run(train_command)
 
             checkpoint = output_dir / "model_best.pth"
@@ -115,6 +118,7 @@ def main() -> int:
         "variant": args.variant,
         "seeds": args.seeds,
         "w_adv_override": args.w_adv,
+        "w_cvpa_override": args.w_cvpa,
         "per_seed": per_seed,
         "aggregate": aggregate,
     }
