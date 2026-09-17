@@ -2,12 +2,12 @@
 
 This file records the final identity-disjoint Re-ID split built from the full crop manifest.
 
-Source files:
+Source files (`$CROP_ROOT`/`$SPLIT_ROOT` as defined in the root `README.md`):
 
 ```text
-Manifest: /mnt/ngan/vehicles/reid_crops_full/manifest.csv
-Split root: /mnt/ngan/vehicles/reid_benchmark_identity_full
-Audit: /mnt/ngan/vehicles/reid_benchmark_identity_full/audit.json
+Manifest: $CROP_ROOT/manifest.csv
+Split root: $SPLIT_ROOT
+Audit: $SPLIT_ROOT/audit.json
 ```
 
 ## Identity Split

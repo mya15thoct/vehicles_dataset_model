@@ -80,7 +80,7 @@ def derive_size_edges(sizes: list[float], num_buckets: int = 9) -> list[int]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", default="/mnt/recover/ngan/vehicles/reid_crops_full/manifest.csv")
+    parser.add_argument("--manifest", required=True)
     parser.add_argument("--output-root", default="docs/figures")
     parser.add_argument("--stats-output", default="docs/dataset_depth.md")
     return parser.parse_args()

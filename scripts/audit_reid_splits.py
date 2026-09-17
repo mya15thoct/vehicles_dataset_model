@@ -10,36 +10,22 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+from reid_common.csv_schema import identity, normalize_view, read_csv
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--train", default="/mnt/ngan/vehicles/reid_benchmark_identity/train.csv")
-    parser.add_argument("--val-query", default="/mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv")
-    parser.add_argument("--val-gallery", default="/mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv")
-    parser.add_argument("--query", default="/mnt/ngan/vehicles/reid_benchmark_identity/query.csv")
-    parser.add_argument("--gallery", default="/mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv")
+    parser.add_argument("--train", required=True)
+    parser.add_argument("--val-query", required=True)
+    parser.add_argument("--val-gallery", required=True)
+    parser.add_argument("--query", required=True)
+    parser.add_argument("--gallery", required=True)
     parser.add_argument("--output", default="")
     return parser.parse_args()
 
 
-def read_csv(path: Path) -> list[dict]:
-    if not path.exists():
-        raise FileNotFoundError(path)
-    with path.open("r", newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
-
-
-def identity(row: dict) -> str:
-    return f"{row['condition']}::{int(row['vehicle_id']):06d}"
-
-
 def view_group(row: dict) -> str:
-    view = row["view"]
-    if view.startswith("before"):
-        return "before"
-    if view.startswith("after"):
-        return "after"
-    return view
+    return normalize_view(row["view"])
 
 
 def id_set(rows: list[dict]) -> set[str]:

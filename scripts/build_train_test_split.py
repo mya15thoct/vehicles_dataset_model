@@ -10,23 +10,13 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-
-FIELDS = [
-    "condition",
-    "view",
-    "vehicle_id",
-    "label",
-    "frame_id",
-    "frame_name",
-    "crop_path",
-    "source_image",
-]
+from reid_common.csv_schema import FIELDS, normalize_view
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", default="/mnt/ngan/vehicles/reid_crops/manifest.csv")
-    parser.add_argument("--output-root", default="/mnt/ngan/vehicles/reid_benchmark_identity")
+    parser.add_argument("--manifest", required=True)
+    parser.add_argument("--output-root", required=True)
     parser.add_argument("--train-ratio", type=float, default=0.7)
     parser.add_argument("--val-ratio", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
@@ -36,14 +26,6 @@ def parse_args() -> argparse.Namespace:
 def read_manifest(path: Path) -> list[dict]:
     with path.open("r", newline="", encoding="utf-8") as fh:
         return list(csv.DictReader(fh))
-
-
-def normalize_view(view: str) -> str:
-    if view.startswith("before"):
-        return "before"
-    if view.startswith("after"):
-        return "after"
-    return view
 
 
 def key(row: dict) -> tuple[str, str]:

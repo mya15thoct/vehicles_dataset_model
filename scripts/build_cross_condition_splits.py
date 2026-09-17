@@ -26,16 +26,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-FIELDS = [
-    "condition",
-    "view",
-    "vehicle_id",
-    "label",
-    "frame_id",
-    "frame_name",
-    "crop_path",
-    "source_image",
-]
+from reid_common.csv_schema import FIELDS, identity, normalize_view
 
 # protocol -> (factor position in condition name, train value, test value)
 PROTOCOLS = {
@@ -48,8 +39,8 @@ PROTOCOLS = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--split-root", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full")
-    parser.add_argument("--output-root", default="/mnt/recover/ngan/vehicles/reid_cross_condition")
+    parser.add_argument("--split-root", required=True)
+    parser.add_argument("--output-root", required=True)
     parser.add_argument(
         "--protocols",
         nargs="+",
@@ -75,18 +66,6 @@ def write_csv_rows(path: Path, rows: list[dict]) -> None:
 
 def factor_value(condition: str, position: int) -> str:
     return condition.split("_")[position]
-
-
-def normalize_view(view: str) -> str:
-    if view.startswith("before"):
-        return "before"
-    if view.startswith("after"):
-        return "after"
-    return view
-
-
-def identity(row: dict) -> str:
-    return f"{row['condition']}::{int(row['vehicle_id']):06d}"
 
 
 def print_stats(name: str, rows: list[dict]) -> None:

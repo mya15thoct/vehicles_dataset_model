@@ -20,6 +20,8 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from pathlib import Path
 
+from reid_common.paths import resolve_or_bare
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -27,11 +29,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--annotation-root", default="annotation")
     parser.add_argument("--output", default="docs/annotation_density.json")
     return parser.parse_args()
-
-
-def resolve(root: Path, name: str) -> Path:
-    path = root / name
-    return path if path.exists() else Path(name)
 
 
 def main() -> int:
@@ -52,7 +49,7 @@ def main() -> int:
 
     for condition in config["conditions"]:
         for view_name, view_cfg in condition["views"].items():
-            xml_path = resolve(annotation_root, view_cfg["annotation"])
+            xml_path = resolve_or_bare(annotation_root, view_cfg["annotation"])
             if not xml_path.exists():
                 print(f"skip missing XML: {xml_path}")
                 continue

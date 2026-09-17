@@ -26,25 +26,16 @@ import math
 from collections import defaultdict
 from pathlib import Path, PurePosixPath
 
-FIELDS = [
-    "condition",
-    "view",
-    "vehicle_id",
-    "label",
-    "frame_id",
-    "frame_name",
-    "crop_path",
-    "source_image",
-]
+from reid_common.csv_schema import FIELDS, identity, normalize_view, read_csv
 
 SPLIT_NAMES = ["query", "gallery", "val_query", "val_gallery"]
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", default="/mnt/recover/ngan/vehicles/reid_crops_full/manifest.csv")
-    parser.add_argument("--split-root", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full")
-    parser.add_argument("--output-root", default="/mnt/recover/ngan/vehicles/reid_benchmark_size_matched")
+    parser.add_argument("--manifest", required=True)
+    parser.add_argument("--split-root", required=True)
+    parser.add_argument("--output-root", required=True)
     parser.add_argument(
         "--min-size",
         default="auto",
@@ -55,11 +46,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--splits", nargs="+", default=SPLIT_NAMES, choices=SPLIT_NAMES)
     parser.add_argument("--report", default="docs/size_matched_split.md")
     return parser.parse_args()
-
-
-def read_csv(path: Path) -> list[dict]:
-    with path.open("r", newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
@@ -95,18 +81,6 @@ def load_sizes(manifest_path: Path) -> tuple[dict[str, float], int]:
                 collisions += 1
             sizes[key] = math.sqrt(width * height)
     return sizes, collisions
-
-
-def identity(row: dict) -> str:
-    return f"{row['condition']}::{int(row['vehicle_id']):06d}"
-
-
-def normalize_view(view: str) -> str:
-    if view.startswith("before"):
-        return "before"
-    if view.startswith("after"):
-        return "after"
-    return view
 
 
 def main() -> int:

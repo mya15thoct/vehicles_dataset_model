@@ -55,9 +55,12 @@ class CropDataset(Dataset):
 
     def __getitem__(self, index: int):
         row = self.rows[index]
-        with Image.open(row["crop_path"]) as image:
-            image = image.convert("RGB")
-            tensor = self.transform(image)
+        try:
+            with Image.open(row["crop_path"]) as image:
+                image = image.convert("RGB")
+                tensor = self.transform(image)
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(f"Unreadable crop image: {row['crop_path']}") from exc
         if not self.with_condition:
             return tensor, index
         time_index, weather_index = condition_factors(row["condition"])

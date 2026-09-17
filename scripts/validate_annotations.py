@@ -10,6 +10,8 @@ import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from reid_common.paths import resolve_with_fallback
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -82,16 +84,6 @@ def load_view(xml_path: Path) -> dict:
     }
 
 
-def resolve_xml_path(annotation_root: Path, annotation_name: str, fallback_root: Path) -> Path:
-    xml_path = annotation_root / annotation_name
-    if xml_path.exists():
-        return xml_path
-    fallback = fallback_root / annotation_name
-    if fallback.exists():
-        return fallback
-    return xml_path
-
-
 def view_group_name(view_name: str) -> str:
     if view_name.startswith("before"):
         return "before"
@@ -117,7 +109,7 @@ def main() -> int:
         print(f"\n== {condition['name']} ==")
         views = {}
         for view_name, view_cfg in condition["views"].items():
-            xml_path = resolve_xml_path(annotation_root, view_cfg["annotation"], repo_root)
+            xml_path = resolve_with_fallback(annotation_root, view_cfg["annotation"], repo_root)
             if not xml_path.exists():
                 print(f"  {view_name}: missing XML: {xml_path}")
                 had_error = True

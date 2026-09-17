@@ -11,9 +11,11 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 try:
-    from PIL import Image
+    from PIL import Image, UnidentifiedImageError
 except ImportError as exc:  # pragma: no cover
     raise SystemExit("Pillow is required: pip install pillow") from exc
+
+from reid_common.paths import resolve_with_fallback
 
 
 def parse_args() -> argparse.Namespace:
@@ -75,16 +77,6 @@ def clamp_box(box: dict, width: int, height: int) -> tuple[int, int, int, int]:
     return left, top, right, bottom
 
 
-def resolve_path(root: Path, name: str, fallback_root: Path) -> Path:
-    path = root / name
-    if path.exists():
-        return path
-    fallback = fallback_root / name
-    if fallback.exists():
-        return fallback
-    return path
-
-
 def main() -> int:
     args = parse_args()
     repo_root = Path.cwd()
@@ -105,8 +97,8 @@ def main() -> int:
             continue
 
         for view_name, view_cfg in condition["views"].items():
-            xml_path = resolve_path(annotation_root, view_cfg["annotation"], repo_root)
-            image_dir = resolve_path(image_root, view_cfg["images"], repo_root)
+            xml_path = resolve_with_fallback(annotation_root, view_cfg["annotation"], repo_root)
+            image_dir = resolve_with_fallback(image_root, view_cfg["images"], repo_root)
 
             if not xml_path.exists():
                 print(f"skip missing XML: {xml_path}")
@@ -135,13 +127,18 @@ def main() -> int:
                 crop_path = output_root / relative_crop / crop_name
 
                 if not args.dry_run:
-                    with Image.open(image_path) as image:
-                        left, top, right, bottom = clamp_box(box, image.width, image.height)
-                        if right <= left or bottom <= top:
-                            skipped += 1
-                            continue
-                        crop_path.parent.mkdir(parents=True, exist_ok=True)
-                        image.crop((left, top, right, bottom)).save(crop_path, quality=95)
+                    try:
+                        with Image.open(image_path) as image:
+                            left, top, right, bottom = clamp_box(box, image.width, image.height)
+                            if right <= left or bottom <= top:
+                                skipped += 1
+                                continue
+                            crop_path.parent.mkdir(parents=True, exist_ok=True)
+                            image.crop((left, top, right, bottom)).save(crop_path, quality=95)
+                    except (UnidentifiedImageError, OSError) as exc:
+                        print(f"skip unreadable image {image_path}: {exc}")
+                        skipped += 1
+                        continue
 
                 manifest_rows.append(
                     {

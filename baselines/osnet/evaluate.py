@@ -4,23 +4,20 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
-import math
 import sys
 from pathlib import Path
 
 import torch
-import torch.nn.functional as F
-from PIL import Image
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
+
+from reid_common.csv_schema import identity, read_csv
+from reid_common.reid_eval import compute_metrics, extract_features
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--query", default="/mnt/ngan/vehicles/reid_benchmark/query.csv")
-    parser.add_argument("--gallery", default="/mnt/ngan/vehicles/reid_benchmark/gallery.csv")
+    parser.add_argument("--query", required=True)
+    parser.add_argument("--gallery", required=True)
     parser.add_argument("--output", default="results/osnet_pretrained.json")
     parser.add_argument("--model-name", default="osnet_x1_0")
     parser.add_argument("--batch-size", type=int, default=64)
@@ -41,32 +38,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def read_csv(path: Path) -> list[dict]:
-    with path.open("r", newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
-
-
-def identity(row: dict) -> str:
-    return f"{row['condition']}::{int(row['vehicle_id']):06d}"
-
-
-class CropDataset(Dataset):
-    def __init__(self, rows: list[dict], transform) -> None:
-        self.rows = rows
-        self.transform = transform
-
-    def __len__(self) -> int:
-        return len(self.rows)
-
-    def __getitem__(self, index: int):
-        row = self.rows[index]
-        image_path = Path(row["crop_path"])
-        with Image.open(image_path) as image:
-            image = image.convert("RGB")
-            tensor = self.transform(image)
-        return tensor, index
-
-
 def build_model(model_name: str, device: torch.device):
     try:
         import torchreid
@@ -84,104 +55,6 @@ def build_model(model_name: str, device: torch.device):
     model.eval()
     model.to(device)
     return model
-
-
-def extract_features(
-    model,
-    rows: list[dict],
-    batch_size: int,
-    num_workers: int,
-    device: torch.device,
-) -> torch.Tensor:
-    transform = transforms.Compose(
-        [
-            transforms.Resize((256, 128)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
-        ]
-    )
-    dataset = CropDataset(rows, transform)
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=device.type == "cuda",
-    )
-
-    features = [None] * len(rows)
-    with torch.no_grad():
-        for batch_idx, (images, indices) in enumerate(loader, start=1):
-            images = images.to(device)
-            embeddings = model(images)
-            embeddings = F.normalize(embeddings, p=2, dim=1).cpu()
-            for offset, row_index in enumerate(indices.tolist()):
-                features[row_index] = embeddings[offset]
-            print(
-                f"  batch {batch_idx}/{math.ceil(len(dataset) / batch_size)} "
-                f"images={min(batch_idx * batch_size, len(dataset))}/{len(dataset)}",
-                flush=True,
-            )
-
-    return torch.stack(features, dim=0)
-
-
-def compute_metrics(
-    query_features: torch.Tensor,
-    gallery_features: torch.Tensor,
-    query_ids: list[str],
-    gallery_ids: list[str],
-) -> dict:
-    gallery_id_tensor = gallery_ids
-    rank1 = 0
-    rank5 = 0
-    ap_sum = 0.0
-    valid_queries = 0
-
-    for index in range(query_features.shape[0]):
-        qid = query_ids[index]
-        positives = [gid == qid for gid in gallery_id_tensor]
-        num_positives = sum(positives)
-        if num_positives == 0:
-            continue
-
-        scores = torch.mv(gallery_features, query_features[index])
-        order = torch.argsort(scores, descending=True).tolist()
-        ordered_matches = [positives[i] for i in order]
-
-        valid_queries += 1
-        if ordered_matches[0]:
-            rank1 += 1
-        if any(ordered_matches[:5]):
-            rank5 += 1
-
-        hits = 0
-        precision_sum = 0.0
-        for rank, is_match in enumerate(ordered_matches, start=1):
-            if is_match:
-                hits += 1
-                precision_sum += hits / rank
-                if hits == num_positives:
-                    break
-        ap_sum += precision_sum / num_positives
-
-    if valid_queries == 0:
-        return {
-            "valid_queries": 0,
-            "rank1": 0.0,
-            "rank5": 0.0,
-            "mAP": 0.0,
-        }
-
-    return {
-        "valid_queries": valid_queries,
-        "rank1": rank1 / valid_queries,
-        "rank5": rank5 / valid_queries,
-        "mAP": ap_sum / valid_queries,
-    }
 
 
 def main() -> int:

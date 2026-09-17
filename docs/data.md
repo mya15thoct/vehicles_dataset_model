@@ -10,11 +10,7 @@ Public dataset:
 https://huggingface.co/datasets/mya15thoct/multi-weather_traffic_data
 ```
 
-Local server example:
-
-```text
-/mnt/ngan/vehicles/multi-weather_traffic_data
-```
+Downloaded locally as `$DATA_ROOT` (see the root `README.md` Setup section).
 
 Annotation copies used by the code repository:
 

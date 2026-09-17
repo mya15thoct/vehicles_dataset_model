@@ -4,11 +4,11 @@ This baseline evaluates a pretrained OSNet model on the exported vehicle Re-ID s
 
 ## Inputs
 
-Expected split files:
+Expected split files (see the root `README.md` for how `$SPLIT_ROOT` is produced):
 
 ```text
-/mnt/ngan/vehicles/reid_benchmark/query.csv
-/mnt/ngan/vehicles/reid_benchmark/gallery.csv
+$SPLIT_ROOT/query.csv
+$SPLIT_ROOT/gallery.csv
 ```
 
 Each CSV row must contain:
@@ -37,8 +37,8 @@ If `torchreid` is not available from pip in the environment, install it from the
 
 ```bash
 nohup python -u baselines/osnet/evaluate.py \
-  --query /mnt/ngan/vehicles/reid_benchmark/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark/gallery.csv \
+  --query "$SPLIT_ROOT/query.csv" \
+  --gallery "$SPLIT_ROOT/gallery.csv" \
   --output results/osnet_pretrained.json \
   > osnet_eval.log 2>&1 &
 ```

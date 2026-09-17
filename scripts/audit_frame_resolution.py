@@ -18,16 +18,18 @@ from __future__ import annotations
 import argparse
 import json
 import xml.etree.ElementTree as ET
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
 from PIL import Image
+
+from reid_common.paths import resolve_or_bare
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/dataset.json")
-    parser.add_argument("--image-root", default="/mnt/ngan/vehicles/multi-weather_traffic_data")
+    parser.add_argument("--image-root", required=True, help="Root of the downloaded dataset images.")
     parser.add_argument("--annotation-root", default="annotation")
     parser.add_argument("--output", default="docs/frame_resolution_audit.json")
     parser.add_argument(
@@ -38,11 +40,6 @@ def parse_args() -> argparse.Namespace:
         "value for a quick look; the full pass reads every file header.",
     )
     return parser.parse_args()
-
-
-def resolve(root: Path, name: str) -> Path:
-    path = root / name
-    return path if path.exists() else Path(name)
 
 
 def main() -> int:
@@ -58,8 +55,8 @@ def main() -> int:
 
     for condition in config["conditions"]:
         for view_name, view_cfg in condition["views"].items():
-            xml_path = resolve(annotation_root, view_cfg["annotation"])
-            image_dir = resolve(image_root, view_cfg["images"])
+            xml_path = resolve_or_bare(annotation_root, view_cfg["annotation"])
+            image_dir = resolve_or_bare(image_root, view_cfg["images"])
             stream = f"{condition['name']}_{view_name}"
 
             if not xml_path.exists():

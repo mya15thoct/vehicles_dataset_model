@@ -6,10 +6,11 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import subprocess
 import sys
 from pathlib import Path
 
+from reid_common.csv_schema import FIELDS, identity, read_csv
+from reid_common.subprocess_utils import stream_to_log
 
 DEFAULT_CONDITIONS = [
     "morning_norain",
@@ -24,18 +25,6 @@ DEFAULT_LABELS = [
     "motorbike",
     "truck",
 ]
-
-FIELDS = [
-    "condition",
-    "view",
-    "vehicle_id",
-    "label",
-    "frame_id",
-    "frame_name",
-    "crop_path",
-    "source_image",
-]
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -66,11 +55,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def read_csv(path: Path) -> list[dict]:
-    with path.open("r", newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
-
-
 def write_csv(path: Path, rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as fh:
@@ -78,10 +62,6 @@ def write_csv(path: Path, rows: list[dict]) -> None:
         writer.writeheader()
         for row in rows:
             writer.writerow({field: row.get(field, "") for field in FIELDS})
-
-
-def identity(row: dict) -> str:
-    return f"{row['condition']}::{int(row['vehicle_id']):06d}"
 
 
 def filter_pair(query_rows: list[dict], gallery_rows: list[dict], field: str, value: str) -> tuple[list[dict], list[dict]]:
@@ -136,24 +116,7 @@ def run_eval(
         command.extend(["--device", args.device])
 
     output_json.parent.mkdir(parents=True, exist_ok=True)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Running: {' '.join(command)}", flush=True)
-    with log_path.open("w", encoding="utf-8") as log_file:
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        )
-        assert process.stdout is not None
-        for line in process.stdout:
-            print(line, end="", flush=True)
-            log_file.write(line)
-            log_file.flush()
-        return_code = process.wait()
-    if return_code != 0:
-        raise subprocess.CalledProcessError(return_code, command)
+    stream_to_log(command, log_path)
 
 
 def summarize_rows(rows: list[dict], output_root: Path) -> None:

@@ -74,8 +74,8 @@ CLASS_COLORS = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="configs/dataset.json")
-    parser.add_argument("--manifest", default="/mnt/recover/ngan/vehicles/reid_crops_full/manifest.csv")
-    parser.add_argument("--image-root", default="/mnt/recover/ngan/vehicles/multi-weather_traffic_data")
+    parser.add_argument("--manifest", required=True)
+    parser.add_argument("--image-root", required=True)
     parser.add_argument("--annotation-root", default="annotation")
     parser.add_argument("--output-root", default="docs/figures/paper")
     parser.add_argument("--font-size", type=float, default=8.0)

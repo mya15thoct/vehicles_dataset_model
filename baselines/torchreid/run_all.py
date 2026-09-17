@@ -6,10 +6,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import subprocess
 import sys
 from pathlib import Path
 
+from reid_common.subprocess_utils import stream_to_log
 
 DEFAULT_MODELS = [
     "osnet_x1_0",
@@ -25,14 +25,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--manifest",
-        default="/mnt/ngan/vehicles/reid_crops/manifest.csv",
+        required=True,
         help="Crop manifest used to auto-build identity splits if split CSV files are missing.",
     )
-    parser.add_argument("--train-csv", default="/mnt/ngan/vehicles/reid_benchmark_identity/train.csv")
-    parser.add_argument("--val-query", default="/mnt/ngan/vehicles/reid_benchmark_identity/val_query.csv")
-    parser.add_argument("--val-gallery", default="/mnt/ngan/vehicles/reid_benchmark_identity/val_gallery.csv")
-    parser.add_argument("--query", default="/mnt/ngan/vehicles/reid_benchmark_identity/query.csv")
-    parser.add_argument("--gallery", default="/mnt/ngan/vehicles/reid_benchmark_identity/gallery.csv")
+    parser.add_argument("--train-csv", required=True)
+    parser.add_argument("--val-query", required=True)
+    parser.add_argument("--val-gallery", required=True)
+    parser.add_argument("--query", required=True)
+    parser.add_argument("--gallery", required=True)
     parser.add_argument(
         "--split-output-root",
         default="",
@@ -116,34 +116,12 @@ def ensure_split_files(args: argparse.Namespace, results_root: Path) -> None:
         "--seed",
         str(args.seed),
     ]
-    run_command(command, results_root / "build_train_test_split.log")
+    stream_to_log(command, results_root / "build_train_test_split.log")
 
     still_missing = [path for path in split_paths if not path.exists()]
     if still_missing:
         missing_text = ", ".join(str(path) for path in still_missing)
         raise FileNotFoundError(f"Split build finished but files are still missing: {missing_text}")
-
-
-def run_command(command: list[str], log_path: Path) -> None:
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Running: {' '.join(command)}", flush=True)
-    print(f"Log: {log_path}", flush=True)
-    with log_path.open("w", encoding="utf-8") as log_file:
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        )
-        assert process.stdout is not None
-        for line in process.stdout:
-            print(line, end="", flush=True)
-            log_file.write(line)
-            log_file.flush()
-        return_code = process.wait()
-    if return_code != 0:
-        raise subprocess.CalledProcessError(return_code, command)
 
 
 def train_command(args: argparse.Namespace, model_name: str, output_dir: Path) -> list[str]:
@@ -159,7 +137,7 @@ def train_command(args: argparse.Namespace, model_name: str, output_dir: Path) -
         args.val_gallery,
         "--model-name",
         model_name,
-        "--output-dir",
+        "--output-root",
         str(output_dir),
         "--epochs",
         str(args.epochs),
@@ -251,11 +229,11 @@ def main() -> int:
             print(f"Skipping existing result: {model_name}", flush=True)
         else:
             if not args.skip_train:
-                run_command(
+                stream_to_log(
                     train_command(args, model_name, model_dir),
                     model_dir / "train.log",
                 )
-            run_command(
+            stream_to_log(
                 eval_command(args, model_name, model_dir, eval_path),
                 model_dir / "eval.log",
             )
