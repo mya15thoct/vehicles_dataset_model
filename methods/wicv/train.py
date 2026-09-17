@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 import sys
 from pathlib import Path
@@ -34,6 +35,9 @@ from losses import (
 from metrics import evaluate_retrieval
 from model import WICVNet
 from modules import condition_index
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -125,7 +129,7 @@ def main() -> int:
 
     train_rows = read_csv(Path(args.train_csv))
     if not train_rows:
-        print("Empty training CSV", file=sys.stderr)
+        logger.error("Empty training CSV")
         return 1
 
     identities = sorted({identity(row) for row in train_rows})
@@ -198,7 +202,7 @@ def main() -> int:
         "args": vars(args),
     }
     (output_dir / "train_config.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    print(json.dumps(metadata, indent=2), flush=True)
+    logger.info(json.dumps(metadata, indent=2))
 
     best_map = -1.0
     best_epoch = None
@@ -276,20 +280,21 @@ def main() -> int:
             total += count
 
             if batch_index % 20 == 0 or batch_index == len(loader):
-                print(
-                    f"epoch={epoch}/{args.epochs} batch={batch_index}/{len(loader)} "
-                    f"loss={totals['loss'] / total:.4f} id={totals['id'] / total:.4f} "
-                    f"tri={totals['tri'] / total:.4f} cvpa={totals['cvpa'] / total:.4f} "
-                    f"adv={totals['adv'] / total:.4f} cvt={totals['cvt'] / total:.4f} "
-                    f"acc={correct / total:.4f} grl={grl_weight:.3f}",
-                    flush=True,
+                logger.info(
+                    "epoch=%d/%d batch=%d/%d loss=%.4f id=%.4f tri=%.4f cvpa=%.4f "
+                    "adv=%.4f cvt=%.4f acc=%.4f grl=%.3f",
+                    epoch, args.epochs, batch_index, len(loader),
+                    totals["loss"] / total, totals["id"] / total,
+                    totals["tri"] / total, totals["cvpa"] / total,
+                    totals["adv"] / total, totals["cvt"] / total,
+                    correct / total, grl_weight,
                 )
 
         scheduler.step()
         save_checkpoint(output_dir / "model_last.pth", model, args, label_to_index)
 
         if use_validation and (epoch % args.eval_every == 0 or epoch == args.epochs):
-            print(f"Evaluating validation at epoch {epoch}...", flush=True)
+            logger.info("Evaluating validation at epoch %d...", epoch)
             metrics = evaluate_retrieval(
                 model,
                 val_query_rows,
@@ -303,10 +308,9 @@ def main() -> int:
             metrics["epoch"] = epoch
             val_history.append(metrics)
             (output_dir / "val_history.json").write_text(json.dumps(val_history, indent=2), encoding="utf-8")
-            print(
-                f"val epoch={epoch} rank1={metrics['rank1']:.4f} "
-                f"rank5={metrics['rank5']:.4f} mAP={metrics['mAP']:.4f}",
-                flush=True,
+            logger.info(
+                "val epoch=%d rank1=%.4f rank5=%.4f mAP=%.4f",
+                epoch, metrics["rank1"], metrics["rank5"], metrics["mAP"],
             )
             if metrics["mAP"] > best_map + args.min_delta:
                 best_map = metrics["mAP"]
@@ -314,29 +318,27 @@ def main() -> int:
                 stale_checks = 0
                 save_checkpoint(output_dir / "model_best.pth", model, args, label_to_index)
                 (output_dir / "best_val.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
-                print(f"Saved new best checkpoint at epoch {epoch}", flush=True)
+                logger.info("Saved new best checkpoint at epoch %d", epoch)
             else:
                 stale_checks += 1
-                print(
-                    f"No validation mAP improvement >= {args.min_delta}. "
-                    f"stale_checks={stale_checks}/{args.patience}",
-                    flush=True,
+                logger.info(
+                    "No validation mAP improvement >= %s. stale_checks=%d/%d",
+                    args.min_delta, stale_checks, args.patience,
                 )
                 if args.patience > 0 and stale_checks >= args.patience:
                     should_stop = True
-                    print(
-                        f"Early stopping at epoch {epoch}. "
-                        f"Best epoch={best_epoch}, best mAP={best_map:.4f}",
-                        flush=True,
+                    logger.info(
+                        "Early stopping at epoch %d. Best epoch=%s, best mAP=%.4f",
+                        epoch, best_epoch, best_map,
                     )
 
         if should_stop:
             break
 
-    print(f"Saved: {output_dir / 'model_last.pth'}", flush=True)
+    logger.info("Saved: %s", output_dir / "model_last.pth")
     if use_validation:
-        print(f"Best validation epoch: {best_epoch}, mAP={best_map:.4f}", flush=True)
-        print(f"Saved: {output_dir / 'model_best.pth'}", flush=True)
+        logger.info("Best validation epoch: %s, mAP=%.4f", best_epoch, best_map)
+        logger.info("Saved: %s", output_dir / "model_best.pth")
     return 0
 
 

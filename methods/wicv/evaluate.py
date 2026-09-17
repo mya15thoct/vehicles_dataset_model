@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -22,6 +23,9 @@ from metrics import (
     extract_features,
 )
 from model import WICVNet
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -75,7 +79,7 @@ def main() -> int:
     args = parse_args()
     checkpoint_path = Path(args.checkpoint)
     if not checkpoint_path.exists():
-        print(f"Missing checkpoint: {checkpoint_path}", file=sys.stderr)
+        logger.error("Missing checkpoint: %s", checkpoint_path)
         return 1
 
     device = torch.device(args.device)
@@ -97,7 +101,7 @@ def main() -> int:
 
     query_rows = read_csv(Path(args.query))
     gallery_rows = read_csv(Path(args.gallery))
-    print(f"query images: {len(query_rows)}, gallery images: {len(gallery_rows)}")
+    logger.info("query images: %d, gallery images: %d", len(query_rows), len(gallery_rows))
 
     use_condition = model.use_can and not args.no_condition_routing
     query_features = extract_features(
@@ -107,7 +111,7 @@ def main() -> int:
         model, gallery_rows, args.batch_size, args.num_workers, device, height, width, use_condition
     )
     if model.transition is not None and args.cvt_mode != "off":
-        print(f"Applying cross-view transition (mode={args.cvt_mode})...", flush=True)
+        logger.info("Applying cross-view transition (mode=%s)...", args.cvt_mode)
         query_features, gallery_features = apply_cross_view_transition(
             model, query_features, gallery_features, device, mode=args.cvt_mode
         )
@@ -115,8 +119,8 @@ def main() -> int:
     gallery_ids = [identity(row) for row in gallery_rows]
 
     overall = compute_metrics(query_features, gallery_features, query_ids, gallery_ids)
-    print(
-        f"overall rank1={overall['rank1']:.4f} rank5={overall['rank5']:.4f} mAP={overall['mAP']:.4f}"
+    logger.info(
+        "overall rank1=%.4f rank5=%.4f mAP=%.4f", overall["rank1"], overall["rank5"], overall["mAP"]
     )
 
     result = {
@@ -129,15 +133,15 @@ def main() -> int:
     }
 
     if args.rerank:
-        print("Computing k-reciprocal re-ranking (overall)...", flush=True)
+        logger.info("Computing k-reciprocal re-ranking (overall)...")
         overall_rerank = reranked_metrics(
             query_features, gallery_features, query_ids, gallery_ids,
             args.k1, args.k2, args.lambda_value,
         )
         result["overall_rerank"] = overall_rerank
-        print(
-            f"overall+rerank rank1={overall_rerank['rank1']:.4f} "
-            f"rank5={overall_rerank['rank5']:.4f} mAP={overall_rerank['mAP']:.4f}"
+        logger.info(
+            "overall+rerank rank1=%.4f rank5=%.4f mAP=%.4f",
+            overall_rerank["rank1"], overall_rerank["rank5"], overall_rerank["mAP"],
         )
 
     conditions = sorted({row["condition"] for row in query_rows})
@@ -152,23 +156,23 @@ def main() -> int:
         g_ids = [gallery_ids[i] for i in g_index]
         metrics = compute_metrics(q_feats, g_feats, q_ids, g_ids)
         result["per_condition"][condition] = metrics
-        print(
-            f"{condition}: rank1={metrics['rank1']:.4f} "
-            f"rank5={metrics['rank5']:.4f} mAP={metrics['mAP']:.4f}"
+        logger.info(
+            "%s: rank1=%.4f rank5=%.4f mAP=%.4f",
+            condition, metrics["rank1"], metrics["rank5"], metrics["mAP"],
         )
         if args.rerank:
             rerank_metrics = reranked_metrics(
                 q_feats, g_feats, q_ids, g_ids, args.k1, args.k2, args.lambda_value
             )
             result.setdefault("per_condition_rerank", {})[condition] = rerank_metrics
-            print(
-                f"{condition}+rerank: rank1={rerank_metrics['rank1']:.4f} "
-                f"rank5={rerank_metrics['rank5']:.4f} mAP={rerank_metrics['mAP']:.4f}"
+            logger.info(
+                "%s+rerank: rank1=%.4f rank5=%.4f mAP=%.4f",
+                condition, rerank_metrics["rank1"], rerank_metrics["rank5"], rerank_metrics["mAP"],
             )
 
     output_path = Path(args.output) if args.output else checkpoint_path.parent / "eval.json"
     output_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
-    print(f"Saved: {output_path}")
+    logger.info("Saved: %s", output_path)
     return 0
 
 

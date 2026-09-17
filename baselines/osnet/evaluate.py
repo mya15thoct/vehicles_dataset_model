@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -12,6 +13,9 @@ import torch
 
 from reid_common.csv_schema import identity, read_csv
 from reid_common.reid_eval import compute_metrics, extract_features
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -67,14 +71,14 @@ def main() -> int:
         gallery_rows = gallery_rows[: args.max_gallery]
 
     device = torch.device(args.device)
-    print(f"Device: {device}", flush=True)
-    print(f"Model: {args.model_name}", flush=True)
-    print(f"Query images: {len(query_rows)}", flush=True)
-    print(f"Gallery images: {len(gallery_rows)}", flush=True)
+    logger.info("Device: %s", device)
+    logger.info("Model: %s", args.model_name)
+    logger.info("Query images: %d", len(query_rows))
+    logger.info("Gallery images: %d", len(gallery_rows))
 
     model = build_model(args.model_name, device)
 
-    print("Extracting query features...", flush=True)
+    logger.info("Extracting query features...")
     query_features = extract_features(
         model,
         query_rows,
@@ -82,7 +86,7 @@ def main() -> int:
         args.num_workers,
         device,
     )
-    print("Extracting gallery features...", flush=True)
+    logger.info("Extracting gallery features...")
     gallery_features = extract_features(
         model,
         gallery_rows,
@@ -108,8 +112,8 @@ def main() -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
 
-    print(json.dumps(result, indent=2), flush=True)
-    print(f"Saved: {output_path}", flush=True)
+    logger.info(json.dumps(result, indent=2))
+    logger.info("Saved: %s", output_path)
     return 0
 
 
