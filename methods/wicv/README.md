@@ -163,9 +163,6 @@ torchvision transformers/CNNs: `tv_swin_t`, `tv_swin_s`, `tv_vit_b_16`
 (requires --height 224 --width 224), `tv_convnext_tiny`. Use `--lr 1e-4`
 for transformer fine-tuning.
 
-The full experiment playbook for the journal submission lives in
-`docs/journal_experiment_plan.md`.
-
 ## Usage
 
 Requirements are identical to the baselines (torch, torchvision, torchreid,

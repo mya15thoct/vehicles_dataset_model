@@ -1,31 +1,20 @@
-# Conference Experiment Pipeline
+# Conference-Subset Evaluation Pipeline
 
-This folder records the experiment setup for the shorter Scopus-indexed conference version.
+This folder builds a condition-balanced subset of the full VN2V-Weather
+benchmark and runs baseline training/evaluation on it.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `README.md` | Pipeline commands and contribution wording |
-| `build_subset.py` | Build the condition-balanced 50% conference subset |
-| `paper_writing_notes.md` | Paper-ready wording for title, abstract, contributions, sections |
-| `conference_statistics.md` | Split statistics, leakage audit, and tables for the paper |
-| `result_tables.md` | Tables to fill after baseline training finishes |
-| `reviewer_positioning.md` | What to claim and what to avoid for conference vs journal |
-
-## Conference Scope
-
-The conference paper should focus on:
-
-1. Practical cross-view vehicle re-identification formulation.
-2. Identity-disjoint and leakage-audited evaluation protocol.
-3. Baseline comparison and weather/time analysis on a condition-balanced subset.
-
-The conference paper should not position the dataset release as the main contribution.
+| `build_subset.py` | Build a condition-balanced subset from the full crop manifest |
+| `evaluate_breakdowns.py` | Evaluate a trained checkpoint on condition- and class-specific subsets |
+| `make_retrieval_figure.py` | Generate a qualitative top-k retrieval figure |
+| `make_result_chart.py` | Generate a condition-wise Rank-1/mAP chart from a breakdown summary |
 
 ## Subset Definition
 
-Use a condition-balanced subset sampled from the full crop manifest:
+A condition-balanced subset is sampled from the full crop manifest:
 
 | Condition | Selected shared IDs |
 | --- | ---: |
@@ -50,14 +39,23 @@ query   = after-view crops
 gallery = before-view crops
 ```
 
-## Build Conference Subset
+## Setup
 
-Run on the server after full crops are exported:
+Set these paths for your machine (see the root `README.md` for how
+`CROP_ROOT` is produced by `scripts/export_reid_crops.py`):
+
+```bash
+CROP_ROOT=/path/to/reid_crops
+CONF_SPLIT_ROOT=/path/to/reid_benchmark_conference_50
+RESULT_ROOT=results/conference_50_e100
+```
+
+## Build Conference Subset
 
 ```bash
 python conference/build_subset.py \
-  --manifest /mnt/ngan/vehicles/reid_crops_full/manifest.csv \
-  --output-root /mnt/ngan/vehicles/reid_benchmark_conference_50 \
+  --manifest "$CROP_ROOT/manifest.csv" \
+  --output-root "$CONF_SPLIT_ROOT" \
   --ids-per-condition 300 \
   --train-ratio 0.7 \
   --val-ratio 0.1 \
@@ -67,87 +65,69 @@ python conference/build_subset.py \
 Expected outputs:
 
 ```text
-/mnt/ngan/vehicles/reid_benchmark_conference_50/train.csv
-/mnt/ngan/vehicles/reid_benchmark_conference_50/val_query.csv
-/mnt/ngan/vehicles/reid_benchmark_conference_50/val_gallery.csv
-/mnt/ngan/vehicles/reid_benchmark_conference_50/query.csv
-/mnt/ngan/vehicles/reid_benchmark_conference_50/gallery.csv
-/mnt/ngan/vehicles/reid_benchmark_conference_50/selected_identities.csv
-/mnt/ngan/vehicles/reid_benchmark_conference_50/stats.json
+$CONF_SPLIT_ROOT/train.csv
+$CONF_SPLIT_ROOT/val_query.csv
+$CONF_SPLIT_ROOT/val_gallery.csv
+$CONF_SPLIT_ROOT/query.csv
+$CONF_SPLIT_ROOT/gallery.csv
+$CONF_SPLIT_ROOT/selected_identities.csv
+$CONF_SPLIT_ROOT/stats.json
 ```
 
 ## Audit Conference Split
 
 ```bash
 python scripts/audit_reid_splits.py \
-  --train /mnt/ngan/vehicles/reid_benchmark_conference_50/train.csv \
-  --val-query /mnt/ngan/vehicles/reid_benchmark_conference_50/val_query.csv \
-  --val-gallery /mnt/ngan/vehicles/reid_benchmark_conference_50/val_gallery.csv \
-  --query /mnt/ngan/vehicles/reid_benchmark_conference_50/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark_conference_50/gallery.csv \
-  --output /mnt/ngan/vehicles/reid_benchmark_conference_50/audit.json
+  --train "$CONF_SPLIT_ROOT/train.csv" \
+  --val-query "$CONF_SPLIT_ROOT/val_query.csv" \
+  --val-gallery "$CONF_SPLIT_ROOT/val_gallery.csv" \
+  --query "$CONF_SPLIT_ROOT/query.csv" \
+  --gallery "$CONF_SPLIT_ROOT/gallery.csv" \
+  --output "$CONF_SPLIT_ROOT/audit.json"
 ```
 
-Expected:
-
-```json
-"passed": true
-```
+Expected: `"passed": true`
 
 ## Train Conference Baselines
 
-Use a separate results directory so conference results do not overwrite full-dataset results:
+Use a separate results directory so conference results do not overwrite
+full-dataset results:
 
 ```bash
-nohup python -u baselines/torchreid/run_all.py \
-  --manifest /mnt/ngan/vehicles/reid_crops_full/manifest.csv \
-  --train-csv /mnt/ngan/vehicles/reid_benchmark_conference_50/train.csv \
-  --val-query /mnt/ngan/vehicles/reid_benchmark_conference_50/val_query.csv \
-  --val-gallery /mnt/ngan/vehicles/reid_benchmark_conference_50/val_gallery.csv \
-  --query /mnt/ngan/vehicles/reid_benchmark_conference_50/query.csv \
-  --gallery /mnt/ngan/vehicles/reid_benchmark_conference_50/gallery.csv \
-  --results-root results/conference_50_e100 \
+python -u baselines/torchreid/run_all.py \
+  --manifest "$CROP_ROOT/manifest.csv" \
+  --train-csv "$CONF_SPLIT_ROOT/train.csv" \
+  --val-query "$CONF_SPLIT_ROOT/val_query.csv" \
+  --val-gallery "$CONF_SPLIT_ROOT/val_gallery.csv" \
+  --query "$CONF_SPLIT_ROOT/query.csv" \
+  --gallery "$CONF_SPLIT_ROOT/gallery.csv" \
+  --results-root "$RESULT_ROOT" \
   --epochs 100 \
   --eval-every 5 \
   --patience 4 \
   --batch-size 32 \
   --num-workers 4 \
-  --no-auto-split \
-  > run_conference_50_e100.log 2>&1 &
+  --no-auto-split
 ```
 
-Monitor:
-
-```bash
-tail -f run_conference_50_e100.log
-```
-
-Final result table:
-
-```bash
-cat results/conference_50_e100/summary.csv
-```
+Final result table: `$RESULT_ROOT/summary.csv`
 
 ## Evaluate Condition And Class Breakdowns
 
-After at least one checkpoint finishes training, evaluate the same checkpoint on condition-specific and class-specific test subsets. For the paper, run this first on the best overall model, for example `osnet_ain_x1_0`:
+After at least one checkpoint finishes training, evaluate the same checkpoint
+on condition-specific and class-specific test subsets. The breakdown script
+reuses the trained checkpoint; it does not train separate models per
+condition or class.
 
 ```bash
-nohup python -u conference/evaluate_breakdowns.py \
-  --query /mnt/recover/ngan/vehicles/reid_benchmark_conference_50/query.csv \
-  --gallery /mnt/recover/ngan/vehicles/reid_benchmark_conference_50/gallery.csv \
-  --results-root results/conference_50_e100 \
+python -u conference/evaluate_breakdowns.py \
+  --query "$CONF_SPLIT_ROOT/query.csv" \
+  --gallery "$CONF_SPLIT_ROOT/gallery.csv" \
+  --results-root "$RESULT_ROOT" \
   --output-root results/conference_50_breakdowns \
   --models osnet_ain_x1_0 \
   --batch-size 64 \
-  --num-workers 4 \
-  > run_conference_breakdowns.log 2>&1 &
-```
-
-Monitor:
-
-```bash
-tail -f run_conference_breakdowns.log
+  --num-workers 4
 ```
 
 Outputs:
@@ -158,45 +138,26 @@ results/conference_50_breakdowns/breakdown_summary.json
 results/conference_50_breakdowns/subsets/
 ```
 
-The breakdown script reuses the trained checkpoint. It does not train separate models for each condition or class.
-
 ## Generate Qualitative Retrieval Figure
 
-Use the best mAP checkpoint to generate a qualitative top-k retrieval figure. The figure uses after-view crops as queries and before-view crops as ranked gallery results; green borders indicate correct matches and red borders indicate incorrect matches.
+Uses the best mAP checkpoint to generate a qualitative top-k retrieval
+figure: after-view crops as queries, before-view crops as ranked gallery
+results, green borders for correct matches and red borders for incorrect
+matches.
 
 ```bash
-nohup python -u conference/make_retrieval_figure.py \
-  --query /mnt/recover/ngan/vehicles/reid_benchmark_conference_50_recover/query.csv \
-  --gallery /mnt/recover/ngan/vehicles/reid_benchmark_conference_50_recover/gallery.csv \
-  --weights results/conference_50_e100/osnet_ain_x1_0/model_best.pth \
+python -u conference/make_retrieval_figure.py \
+  --query "$CONF_SPLIT_ROOT/query.csv" \
+  --gallery "$CONF_SPLIT_ROOT/gallery.csv" \
+  --weights "$RESULT_ROOT/osnet_ain_x1_0/model_best.pth" \
   --model-name osnet_ain_x1_0 \
   --output-root docs/figures/retrieval_examples \
   --top-k 3 \
   --batch-size 64 \
-  --num-workers 4 \
-  > make_retrieval_figure.log 2>&1 &
-```
-
-Monitor:
-
-```bash
-tail -f make_retrieval_figure.log
-```
-
-Outputs:
-
-```text
-docs/figures/retrieval_examples/qualitative_retrieval_top3.jpg
-docs/figures/retrieval_examples/retrieval_morning_norain.jpg
-docs/figures/retrieval_examples/retrieval_evening_norain.jpg
-docs/figures/retrieval_examples/retrieval_morning_rain.jpg
-docs/figures/retrieval_examples/retrieval_evening_rain.jpg
-docs/figures/retrieval_examples/qualitative_retrieval_metadata.json
+  --num-workers 4
 ```
 
 ## Generate Result Chart
-
-Create a compact condition-wise Rank-1/mAP chart from the breakdown CSV:
 
 ```bash
 python conference/make_result_chart.py \
@@ -205,24 +166,4 @@ python conference/make_result_chart.py \
   --output-root docs/figures/result_charts
 ```
 
-Output:
-
-```text
-docs/figures/result_charts/condition_performance_osnet_ain_x1_0.png
-```
-
-## Conference Contribution Wording
-
-Recommended contribution statement:
-
-```text
-The main contributions of this work are threefold:
-
-1. We formulate a practical cross-view vehicle re-identification problem using synchronized front/rear traffic camera views under varying weather and lighting conditions.
-
-2. We define an identity-disjoint and leakage-audited evaluation protocol for this cross-view setting, where an automated audit verifies that there is no identity or crop overlap among the training, validation, and test splits.
-
-3. We benchmark representative deep Re-ID models on a condition-balanced subset of 1,200 cross-view vehicle identities and analyze the impact of rain and time-of-day variation on matching performance.
-```
-
-Do not list dataset release as a conference contribution. The collected/annotated data should be described in the experimental setup section only.
+Output: `docs/figures/result_charts/condition_performance_osnet_ain_x1_0.png`

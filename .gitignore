@@ -2,3 +2,38 @@ __pycache__/
 *.py[cod]
 *.log
 results/
+
+# Build artifacts
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# Editor / OS
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Environments
+.venv/
+venv/
+
+# Model checkpoints
+*.pth
+*.pt
+
+# Internal paper-strategy notes (kept locally, not published)
+docs/paper_brief.md
+docs/paper_template.md
+docs/q2_checklist.md
+docs/final_results.md
+docs/writer_prompt.md
+docs/server_commands.md
+docs/journal_experiment_plan.md
+conference/paper_writing_notes.md
+conference/reviewer_positioning.md
+conference/result_tables.md
+conference/conference_statistics.md
+conference/experiment_results.md
