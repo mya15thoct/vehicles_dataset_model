@@ -1,0 +1,10 @@
+# PyTorch and TorchVision are not pinned here: install the build matching
+# your CUDA/CPU setup first by following https://pytorch.org/get-started/locally/
+torchreid
+numpy
+Pillow
+matplotlib
+
+# Dataset download from the Hugging Face Hub
+huggingface_hub
+gdown
