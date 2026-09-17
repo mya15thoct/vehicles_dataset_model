@@ -3,42 +3,16 @@
 
 from __future__ import annotations
 
-import csv
 import random
 from collections import defaultdict
-from pathlib import Path
 
 from PIL import Image
 from torch.utils.data import Dataset, Sampler
 
-TIME_NAMES = ["morning", "evening"]
-WEATHER_NAMES = ["norain", "rain"]
+from reid_common.csv_schema import identity, normalize_view, read_csv
+from reid_common.reid_eval import condition_factors
+
 VIEW_NAMES = ["before", "after"]
-
-
-def read_csv(path: Path) -> list[dict]:
-    with path.open("r", newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
-
-
-def identity(row: dict) -> str:
-    return f"{row['condition']}::{int(row['vehicle_id']):06d}"
-
-
-def normalize_view(view: str) -> str:
-    if view.startswith("before"):
-        return "before"
-    if view.startswith("after"):
-        return "after"
-    return view
-
-
-def condition_factors(condition: str) -> tuple[int, int]:
-    """Split e.g. 'morning_rain' into (time_index, weather_index)."""
-    parts = condition.split("_")
-    if len(parts) != 2 or parts[0] not in TIME_NAMES or parts[1] not in WEATHER_NAMES:
-        raise ValueError(f"Unrecognized condition name: {condition}")
-    return TIME_NAMES.index(parts[0]), WEATHER_NAMES.index(parts[1])
 
 
 class ReidTrainDataset(Dataset):
@@ -61,30 +35,6 @@ class ReidTrainDataset(Dataset):
         view = VIEW_NAMES.index(normalize_view(row["view"]))
         time_index, weather_index = condition_factors(row["condition"])
         return tensor, label, view, time_index, weather_index
-
-
-class CropDataset(Dataset):
-    """Evaluation dataset returning (image, row_index, condition_index).
-
-    The condition index is scene metadata (time-of-day x weather) already
-    present in the split CSV; it is what the condition-adaptive neck routes on
-    at inference time.
-    """
-
-    def __init__(self, rows: list[dict], transform) -> None:
-        self.rows = rows
-        self.transform = transform
-
-    def __len__(self) -> int:
-        return len(self.rows)
-
-    def __getitem__(self, index: int):
-        row = self.rows[index]
-        with Image.open(row["crop_path"]) as image:
-            image = image.convert("RGB")
-            tensor = self.transform(image)
-        time_index, weather_index = condition_factors(row["condition"])
-        return tensor, index, time_index * 2 + weather_index
 
 
 class CrossViewIdentitySampler(Sampler):

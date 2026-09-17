@@ -9,6 +9,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from reid_common.plotting import load_font, text_size
 
 CONDITION_ORDER = [
     "morning_norain",
@@ -46,18 +47,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
-    ]
-    for candidate in candidates:
-        path = Path(candidate)
-        if path.exists():
-            return ImageFont.truetype(str(path), size=size)
-    return ImageFont.load_default()
-
-
 def read_condition_rows(path: Path, model: str) -> dict[str, dict]:
     with path.open("r", newline="", encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
@@ -69,11 +58,6 @@ def read_condition_rows(path: Path, model: str) -> dict[str, dict]:
     if missing:
         raise SystemExit(f"Missing condition rows for {model}: {', '.join(missing)}")
     return result
-
-
-def text_size(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> tuple[int, int]:
-    bbox = draw.textbbox((0, 0), text, font=font)
-    return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 
 def draw_multiline_centered(

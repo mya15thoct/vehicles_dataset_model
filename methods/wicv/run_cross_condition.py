@@ -12,10 +12,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import subprocess
 import sys
 from pathlib import Path
 
+from reid_common.sweep_harness import eval_summary_row, resolve_checkpoint, run
 from run_ablation import VARIANTS
 
 PROTOCOLS = ["norain2rain", "rain2norain", "morning2evening", "evening2morning"]
@@ -23,7 +23,7 @@ PROTOCOLS = ["norain2rain", "rain2norain", "morning2evening", "evening2morning"]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--protocol-root", default="/mnt/recover/ngan/vehicles/reid_cross_condition")
+    parser.add_argument("--protocol-root", required=True)
     parser.add_argument("--protocols", nargs="+", default=PROTOCOLS, choices=PROTOCOLS)
     parser.add_argument(
         "--variants",
@@ -41,11 +41,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--w-adv", type=float, default=None, help="Override adversarial weight for all runs.")
     parser.add_argument("--skip-existing", action="store_true")
     return parser.parse_args()
-
-
-def run(command: list[str]) -> None:
-    print("+", " ".join(command), flush=True)
-    subprocess.run(command, check=True)
 
 
 def main() -> int:
@@ -74,7 +69,7 @@ def main() -> int:
                     "--val-query", str(split_root / "val_query.csv"),
                     "--val-gallery", str(split_root / "val_gallery.csv"),
                     "--model-name", args.model_name,
-                    "--output-dir", str(output_dir),
+                    "--output-root", str(output_dir),
                     "--epochs", str(args.epochs),
                     "--eval-every", str(args.eval_every),
                     "--patience", str(args.patience),
@@ -86,9 +81,7 @@ def main() -> int:
                     train_command += ["--w-adv", str(args.w_adv)]
                 run(train_command)
 
-                checkpoint = output_dir / "model_best.pth"
-                if not checkpoint.exists():
-                    checkpoint = output_dir / "model_last.pth"
+                checkpoint = resolve_checkpoint(output_dir)
                 run([
                     sys.executable, "-u", str(script_dir / "evaluate.py"),
                     "--checkpoint", str(checkpoint),
@@ -98,17 +91,8 @@ def main() -> int:
                     "--output", str(eval_path),
                 ])
 
-            result = json.loads(eval_path.read_text(encoding="utf-8"))
-            summary_rows.append(
-                {
-                    "protocol": protocol,
-                    "variant": variant,
-                    "model_name": args.model_name,
-                    "rank1": result["overall"]["rank1"],
-                    "rank5": result["overall"]["rank5"],
-                    "mAP": result["overall"]["mAP"],
-                }
-            )
+            row = eval_summary_row(eval_path, protocol=protocol, variant=variant, model_name=args.model_name)
+            summary_rows.append(row)
 
     summary_path = results_root / "summary.csv"
     with summary_path.open("w", newline="", encoding="utf-8") as fh:

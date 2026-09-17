@@ -35,8 +35,8 @@ BLUE = (9, 105, 218)
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", default="results/wicv/osnet_x1_0_full/model_best.pth")
-    parser.add_argument("--query", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/query.csv")
-    parser.add_argument("--gallery", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/gallery.csv")
+    parser.add_argument("--query", required=True)
+    parser.add_argument("--gallery", required=True)
     parser.add_argument("--output-root", default="docs/figures/retrieval")
     parser.add_argument("--topk", type=int, default=5)
     parser.add_argument(
@@ -128,11 +128,12 @@ def main() -> int:
 
     query_rows = read_csv(Path(args.query))
     gallery_rows = read_csv(Path(args.gallery))
+    use_condition = bool(getattr(model, "use_can", False))
     query_features = extract_features(
-        model, query_rows, args.batch_size, args.num_workers, device, height, width
+        model, query_rows, args.batch_size, args.num_workers, device, height, width, use_condition
     )
     gallery_features = extract_features(
-        model, gallery_rows, args.batch_size, args.num_workers, device, height, width
+        model, gallery_rows, args.batch_size, args.num_workers, device, height, width, use_condition
     )
     gallery_ids = [identity(row) for row in gallery_rows]
     gallery_id_set = set(gallery_ids)

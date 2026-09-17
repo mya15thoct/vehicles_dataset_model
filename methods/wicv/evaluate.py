@@ -27,8 +27,8 @@ from model import WICVNet
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", default="results/wicv/osnet_x1_0_full/model_best.pth")
-    parser.add_argument("--query", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/query.csv")
-    parser.add_argument("--gallery", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/gallery.csv")
+    parser.add_argument("--query", required=True)
+    parser.add_argument("--gallery", required=True)
     parser.add_argument("--output", default=None, help="Output JSON path. Defaults to eval.json next to the checkpoint.")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--num-workers", type=int, default=4)

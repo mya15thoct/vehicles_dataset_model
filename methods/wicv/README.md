@@ -176,7 +176,7 @@ python -u methods/wicv/train.py \
   --val-query "$SPLIT_ROOT/val_query.csv" \
   --val-gallery "$SPLIT_ROOT/val_gallery.csv" \
   --model-name osnet_x1_0 \
-  --output-dir results/wicv/osnet_x1_0_full \
+  --output-root results/wicv/osnet_x1_0_full \
   --epochs 60 --eval-every 5 --patience 4
 ```
 
@@ -193,13 +193,18 @@ Train the v2 model (both structural modules, FCA dropped):
 
 ```bash
 python -u methods/wicv/train.py \
+  --train-csv "$SPLIT_ROOT/train.csv" \
+  --val-query "$SPLIT_ROOT/val_query.csv" \
+  --val-gallery "$SPLIT_ROOT/val_gallery.csv" \
   --model-name osnet_x1_0 \
   --use-cvt --use-can --no-adv \
-  --output-dir results/wicv/osnet_x1_0_v2 \
+  --output-root results/wicv/osnet_x1_0_v2 \
   --epochs 60 --eval-every 5 --patience 4
 
 python -u methods/wicv/evaluate.py \
   --checkpoint results/wicv/osnet_x1_0_v2/model_best.pth \
+  --query "$SPLIT_ROOT/query.csv" \
+  --gallery "$SPLIT_ROOT/gallery.csv" \
   --cvt-mode gallery
 ```
 

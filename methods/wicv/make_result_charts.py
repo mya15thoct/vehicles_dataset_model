@@ -14,7 +14,9 @@ import argparse
 import csv
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
+
+from reid_common.plotting import load_font, text_size
 
 INK = (25, 31, 40)
 MUTED = (91, 99, 112)
@@ -44,24 +46,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--selected-w-adv", type=float, default=0.1)
     parser.add_argument("--output-root", default="docs/figures")
     return parser.parse_args()
-
-
-def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-    ]
-    for candidate in candidates:
-        path = Path(candidate)
-        if path.exists():
-            return ImageFont.truetype(str(path), size=size)
-    return ImageFont.load_default()
-
-
-def text_size(draw: ImageDraw.ImageDraw, text: str, font) -> tuple[int, int]:
-    bbox = draw.textbbox((0, 0), text, font=font)
-    return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 
 def save_image(image: Image.Image, path: Path) -> None:

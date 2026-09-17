@@ -12,9 +12,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import subprocess
 import sys
 from pathlib import Path
+
+from reid_common.sweep_harness import resolve_checkpoint, run
 
 SWEEPS: dict[str, list[float]] = {
     "w_adv": [0.0, 0.05, 0.1, 0.25, 0.5],
@@ -26,11 +27,11 @@ SWEEPS: dict[str, list[float]] = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--train-csv", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/train.csv")
-    parser.add_argument("--val-query", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/val_query.csv")
-    parser.add_argument("--val-gallery", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/val_gallery.csv")
-    parser.add_argument("--query", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/query.csv")
-    parser.add_argument("--gallery", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/gallery.csv")
+    parser.add_argument("--train-csv", required=True)
+    parser.add_argument("--val-query", required=True)
+    parser.add_argument("--val-gallery", required=True)
+    parser.add_argument("--query", required=True)
+    parser.add_argument("--gallery", required=True)
     parser.add_argument("--model-name", default="osnet_x1_0")
     parser.add_argument("--results-root", default="results/wicv_sensitivity")
     parser.add_argument("--params", nargs="+", default=["w_adv", "w_cvpa"], choices=list(SWEEPS.keys()))
@@ -41,11 +42,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--skip-existing", action="store_true")
     return parser.parse_args()
-
-
-def run(command: list[str]) -> None:
-    print("+", " ".join(command), flush=True)
-    subprocess.run(command, check=True)
 
 
 def main() -> int:
@@ -69,7 +65,7 @@ def main() -> int:
                     "--val-query", args.val_query,
                     "--val-gallery", args.val_gallery,
                     "--model-name", args.model_name,
-                    "--output-dir", str(output_dir),
+                    "--output-root", str(output_dir),
                     "--epochs", str(args.epochs),
                     "--eval-every", str(args.eval_every),
                     "--patience", str(args.patience),
@@ -79,9 +75,7 @@ def main() -> int:
                 ]
                 run(train_command)
 
-                checkpoint = output_dir / "model_best.pth"
-                if not checkpoint.exists():
-                    checkpoint = output_dir / "model_last.pth"
+                checkpoint = resolve_checkpoint(output_dir)
                 run([
                     sys.executable, "-u", str(script_dir / "evaluate.py"),
                     "--checkpoint", str(checkpoint),

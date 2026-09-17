@@ -4,18 +4,16 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
-import math
 import sys
 from pathlib import Path
 
 import torch
-import torch.nn.functional as F
-from PIL import Image, ImageDraw, ImageFont
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
+from PIL import Image, ImageDraw
 
+from reid_common.csv_schema import identity, read_csv
+from reid_common.plotting import load_font
+from reid_common.reid_eval import extract_features
 
 CONDITION_ORDER = [
     "morning_norain",
@@ -60,43 +58,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def read_csv(path: Path) -> list[dict]:
-    with path.open("r", newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
-
-
-def identity(row: dict) -> str:
-    return f"{row['condition']}::{int(row['vehicle_id']):06d}"
-
-
-class CropDataset(Dataset):
-    def __init__(self, rows: list[dict], transform) -> None:
-        self.rows = rows
-        self.transform = transform
-
-    def __len__(self) -> int:
-        return len(self.rows)
-
-    def __getitem__(self, index: int):
-        row = self.rows[index]
-        with Image.open(row["crop_path"]) as image:
-            image = image.convert("RGB")
-            tensor = self.transform(image)
-        return tensor, index
-
-
-def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
-    ]
-    for candidate in candidates:
-        path = Path(candidate)
-        if path.exists():
-            return ImageFont.truetype(str(path), size=size)
-    return ImageFont.load_default()
-
-
 def build_model(model_name: str, num_classes: int, device: torch.device):
     try:
         import torchreid
@@ -111,45 +72,6 @@ def build_model(model_name: str, num_classes: int, device: torch.device):
     )
     model.to(device)
     return model
-
-
-def extract_features(model, rows: list[dict], batch_size: int, num_workers: int, device: torch.device) -> torch.Tensor:
-    transform = transforms.Compose(
-        [
-            transforms.Resize((256, 128)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
-        ]
-    )
-    dataset = CropDataset(rows, transform)
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=device.type == "cuda",
-    )
-    features = [None] * len(rows)
-    model.eval()
-    with torch.no_grad():
-        for batch_index, (images, indices) in enumerate(loader, start=1):
-            images = images.to(device)
-            embeddings = model(images)
-            if isinstance(embeddings, (tuple, list)):
-                embeddings = embeddings[-1]
-            embeddings = F.normalize(embeddings, p=2, dim=1).cpu()
-            for offset, row_index in enumerate(indices.tolist()):
-                features[row_index] = embeddings[offset]
-            if batch_index % 20 == 0 or batch_index == len(loader):
-                print(
-                    f"  batch {batch_index}/{math.ceil(len(dataset) / batch_size)} "
-                    f"images={min(batch_index * batch_size, len(dataset))}/{len(dataset)}",
-                    flush=True,
-                )
-    return torch.stack(features, dim=0)
 
 
 def compute_rankings(query_features: torch.Tensor, gallery_features: torch.Tensor, top_k: int) -> list[list[int]]:

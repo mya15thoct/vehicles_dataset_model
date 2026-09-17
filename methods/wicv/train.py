@@ -38,11 +38,11 @@ from modules import condition_index
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--train-csv", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/train.csv")
-    parser.add_argument("--val-query", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/val_query.csv")
-    parser.add_argument("--val-gallery", default="/mnt/recover/ngan/vehicles/reid_benchmark_identity_full/val_gallery.csv")
+    parser.add_argument("--train-csv", required=True)
+    parser.add_argument("--val-query", required=True)
+    parser.add_argument("--val-gallery", required=True)
     parser.add_argument("--model-name", default="osnet_x1_0")
-    parser.add_argument("--output-dir", default="results/wicv/osnet_x1_0_full")
+    parser.add_argument("--output-root", default="results/wicv/osnet_x1_0_full")
     parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--eval-every", type=int, default=5)
     parser.add_argument("--patience", type=int, default=4)
@@ -137,7 +137,7 @@ def main() -> int:
     use_validation = bool(val_query_rows and val_gallery_rows and args.eval_every > 0)
 
     device = torch.device(args.device)
-    output_dir = Path(args.output_dir)
+    output_dir = Path(args.output_root)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     dataset = ReidTrainDataset(train_rows, label_to_index, build_train_transform(args.height, args.width))
