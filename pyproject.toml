@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reid-common"
+version = "0.1.0"
+description = "Shared primitives for the VN2V-Weather / WICV-Net data pipeline and experiment scripts"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+
+[tool.setuptools]
+packages = ["reid_common"]
