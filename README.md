@@ -1,11 +1,87 @@
 # Multi-Weather Traffic Vehicle Re-Identification
 
-This repository contains data-processing and baseline evaluation code for a multi-weather traffic vehicle re-identification dataset. The dataset is collected from two synchronized camera views of the same traffic scene:
+## Overview
 
-- `before`: front-side/front-view stream
-- `after`: rear-side/back-view stream
+This repository is the official code release for:
 
-Each vehicle is annotated with a bounding box, vehicle class, and identity ID. The same physical vehicle appearing in both views is assigned the same identity ID, enabling cross-view vehicle re-identification.
+> **WICV-Net: A Cross-View Alignment Framework for Multi-Weather Traffic Vehicle Re-Identification**
+> Thi Kim Ngan Tran, Trong Hoang Dung Le, Huy Kien Phan, Trong-Hop Do
+> University of Information Technology & Vietnam National University, Ho Chi Minh City, Vietnam — submitted to *IEEE Access*.
+
+It makes two contributions:
+
+1. **VN2V-Weather**, to our knowledge the first public cross-view vehicle Re-ID
+   benchmark to combine paired elevated front/rear identity supervision,
+   explicit weather and time-of-day annotations, and heterogeneous mixed
+   traffic (cars, motorbikes, trucks, buses). It contains 42,254 frames and
+   100,952 annotated vehicle boxes across four weather/time conditions.
+2. **WICV-Net**, a backbone-agnostic training framework for the resulting
+   extreme opposite-view retrieval protocol (rear-view query → front-view
+   gallery). On an identity-disjoint, leakage-audited split, WICV-Net
+   improves mAP from 71.18% to 83.34% (± 0.21 over three seeds) over a
+   seed-matched control, gains up to +17.7 mAP over same-backbone CE/triplet
+   baselines, reaches 84.87% mAP with a Swin-T backbone, and improves all
+   four unseen cross-condition transfer protocols by 3.6–9.1 mAP without
+   using weather/time labels during training.
+
+The dataset is collected from two synchronized camera views of the same
+traffic scene:
+
+- `before`: front-view stream
+- `after`: rear-view stream
+
+Each vehicle is annotated with a bounding box, vehicle class, and identity
+ID. The same physical vehicle appearing in both views is assigned the same
+identity ID, enabling cross-view vehicle re-identification.
+
+## Method
+
+WICV-Net keeps the same backbones as the baselines (OSNet, ResNet, Swin-T,
+... from Torchreid/TorchVision) and changes only the training framework, on
+top of a standard BNNeck identity head:
+
+```text
+                          +--> BNNeck --> ID classifier ---> L_id (CE + label smoothing)
+crop --> backbone --> f --+--> cross-view batch-hard triplet -> L_cv-tri
+                          +--> cross-view prototype memory ---> L_cvpa
+```
+
+- **Cross-View Batch-Hard Triplet (CV-Tri)** restricts the hardest positive
+  for each anchor to the *opposite* camera view, aligning training with the
+  actual retrieval protocol instead of letting the loss be satisfied by easy
+  same-view positives.
+- **Cross-View Prototype Alignment (CVPA)** maintains an EMA memory of one
+  L2-normalized prototype per `(identity, view)` pair and pulls each
+  embedding toward its identity's opposite-view prototype via an InfoNCE
+  loss, giving a stable, dataset-wide cross-view anchor.
+- A view-balanced PK sampler guarantees every training batch contains
+  cross-view positives for both losses.
+
+A factorized condition-adversarial term (FCA) and two structural v2 modules
+(cross-view transition, condition-adaptive normalization) were also
+investigated; see `methods/wicv/README.md` for the full design discussion
+and ablations. The final reported objective is adversarial-free
+(identity CE + CV-Tri + CVPA) — see [Main Results](#main-results).
+
+## Repository Structure
+
+```text
+annotation/                 # Annotation copies used by this repository
+configs/dataset.json        # Dataset configuration
+reid_common/                # Shared CSV/path/eval/plotting primitives (pip install -e .)
+docs/                       # Dataset notes and statistics (see docs/README.md)
+scripts/
+  validate_annotations.py   # Validate XML labels and cross-view identity consistency
+  export_reid_crops.py      # Export vehicle crops from frame images and XML
+  build_reid_split.py       # Build query/gallery split for zero-shot checks
+  build_train_test_split.py # Build identity-disjoint train/val/test split
+  audit_reid_splits.py      # Check split CSV files for data leakage
+baselines/
+  osnet/                    # Pretrained OSNet sanity-check evaluator
+  torchreid/                # Fine-tuning/evaluation baselines
+methods/
+  wicv/                     # Proposed WICV-Net training framework (see methods/wicv/README.md)
+```
 
 ## Dataset
 
@@ -47,7 +123,8 @@ multi-weather_traffic_data/
   evening_rain_after/
 ```
 
-Annotations are provided in CVAT XML format. Each annotated vehicle box contains a class label and an identity ID:
+Annotations are provided in CVAT XML format. Each annotated vehicle box
+contains a class label and an identity ID:
 
 ```xml
 <image id="1" name="frame_000001.jpg" width="1080" height="1920">
@@ -64,7 +141,7 @@ same physical vehicle  -> same id
 different vehicle      -> different id
 ```
 
-## Annotation Statistics
+### Annotation Statistics
 
 Current validated annotation statistics:
 
@@ -95,39 +172,22 @@ Vehicle classes:
 bus, car, motorbike, truck
 ```
 
-## Repository Structure
-
-```text
-annotation/                 # Annotation copies used by this repository
-configs/dataset.json        # Dataset configuration
-docs/data.md                # Dataset notes and statistics
-scripts/
-  validate_annotations.py   # Validate XML labels and cross-view identity consistency
-  export_reid_crops.py      # Export vehicle crops from frame images and XML
-  build_reid_split.py       # Build query/gallery split for zero-shot checks
-  build_train_test_split.py # Build identity-disjoint train/val/test split
-  audit_reid_splits.py      # Check split CSV files for data leakage
-baselines/
-  osnet/                    # Pretrained OSNet sanity-check evaluator
-  torchreid/                # Fine-tuning/evaluation baselines
-methods/
-  wicv/                     # Proposed WICV-Net training framework (see methods/wicv/README.md)
-```
-
-## Setup
+## Environment Setup
 
 Create a Python environment with Python 3.10+.
 
-Install PyTorch and TorchVision for your CUDA or CPU setup by following the official PyTorch instructions:
+Install PyTorch and TorchVision for your CUDA or CPU setup by following the
+official PyTorch instructions:
 
 ```text
 https://pytorch.org/get-started/locally/
 ```
 
-Then install the remaining dependencies:
+Then install the remaining dependencies and the shared `reid_common` package:
 
 ```bash
-pip install pillow gdown torchreid huggingface_hub
+pip install -r requirements.txt
+pip install -e .
 ```
 
 Verify the environment:
@@ -135,9 +195,10 @@ Verify the environment:
 ```bash
 python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 python -c "import torchreid; print('torchreid ok')"
+python -c "from reid_common.reid_eval import CropDataset; print('reid_common ok')"
 ```
 
-## Download Data
+## Dataset Setup (Hugging Face)
 
 Install the Hugging Face CLI if needed:
 
@@ -153,7 +214,8 @@ hf download mya15thoct/multi-weather_traffic_data \
   --local-dir /path/to/multi-weather_traffic_data
 ```
 
-If the dataset is gated, request access on the Hugging Face dataset page and log in before downloading:
+If the dataset is gated, request access on the Hugging Face dataset page and
+log in before downloading:
 
 ```bash
 hf auth login
@@ -168,7 +230,9 @@ SPLIT_ROOT=/path/to/reid_benchmark_identity
 RESULT_ROOT=results/baselines_final
 ```
 
-## Data Pipeline
+## Reproducing Results
+
+### 1. Data pipeline
 
 Validate annotations:
 
@@ -212,10 +276,74 @@ python scripts/audit_reid_splits.py \
   --output "$SPLIT_ROOT/audit.json"
 ```
 
-A clean split should report:
+A clean split should report `"passed": true`.
 
-```json
-"passed": true
+### 2. Train / evaluate the CE-triplet baselines
+
+```bash
+python -u baselines/torchreid/run_all.py \
+  --manifest "$CROP_ROOT/manifest.csv" \
+  --train-csv "$SPLIT_ROOT/train.csv" \
+  --val-query "$SPLIT_ROOT/val_query.csv" \
+  --val-gallery "$SPLIT_ROOT/val_gallery.csv" \
+  --query "$SPLIT_ROOT/query.csv" \
+  --gallery "$SPLIT_ROOT/gallery.csv" \
+  --results-root "$RESULT_ROOT" \
+  --epochs 100 \
+  --eval-every 5 \
+  --patience 4 \
+  --batch-size 64 \
+  --num-workers 4 \
+  --no-auto-split
+```
+
+Default baseline models: `osnet_x1_0`, `osnet_ain_x1_0`, `osnet_ibn_x1_0`,
+`resnet50`, `resnet101`, `mobilenetv2_x1_0`. See `baselines/README.md` and
+`baselines/torchreid/README.md` for single-model commands.
+
+### 3. Train / evaluate WICV-Net (fixed 60-epoch schedule)
+
+```bash
+python -u methods/wicv/train.py \
+  --train-csv "$SPLIT_ROOT/train.csv" \
+  --val-query "$SPLIT_ROOT/val_query.csv" \
+  --val-gallery "$SPLIT_ROOT/val_gallery.csv" \
+  --model-name osnet_x1_0 \
+  --output-root results/wicv/osnet_x1_0_full \
+  --epochs 60 --eval-every 5 --patience 4
+
+python -u methods/wicv/evaluate.py \
+  --checkpoint results/wicv/osnet_x1_0_full/model_best.pth \
+  --query "$SPLIT_ROOT/query.csv" \
+  --gallery "$SPLIT_ROOT/gallery.csv"
+```
+
+See `methods/wicv/README.md` for the full ablation/sensitivity/multi-seed
+runners (`run_ablation.py`, `run_sensitivity.py`, `run_seeds.py`) and the v2
+structural-module variants.
+
+### 4. Cross-condition generalization
+
+```bash
+CROSS_CONDITION_ROOT=/path/to/reid_cross_condition
+
+python -u scripts/build_cross_condition_splits.py \
+  --split-root "$SPLIT_ROOT" \
+  --output-root "$CROSS_CONDITION_ROOT"
+
+python -u methods/wicv/run_cross_condition.py \
+  --protocol-root "$CROSS_CONDITION_ROOT" \
+  --model-name osnet_x1_0
+```
+
+### 5. k-Reciprocal re-ranking (optional add-on)
+
+```bash
+python -u methods/wicv/evaluate.py \
+  --checkpoint results/wicv/osnet_x1_0_full/model_best.pth \
+  --query "$SPLIT_ROOT/query.csv" \
+  --gallery "$SPLIT_ROOT/gallery.csv" \
+  --rerank
 ```
 
 ## Evaluation Protocol
@@ -236,68 +364,69 @@ The retrieval task is:
 Given a vehicle crop from the after view, retrieve the same vehicle from the before-view gallery.
 ```
 
-Recommended metrics:
+Recommended metrics: Rank-1, Rank-5, mAP.
 
-```text
-Rank-1, Rank-5, mAP
+## Main Results
+
+**Table 7 — WICV-Net vs. CE/triplet baseline, per backbone (%).** WICV-Net
+rows use the final adversarial-free objective under a fixed 60-epoch
+schedule; the OSNet row is mean ± std over 3 seeds. CE/triplet baselines use
+the standard Torchreid strong-baseline recipe with early stopping.
+
+| Backbone | Method | Rank-1 | Rank-5 | mAP |
+| --- | --- | ---: | ---: | ---: |
+| OSNet | CE/triplet baseline | 85.23 | 91.03 | 79.15 |
+| OSNet | WICV-Net (3 seeds) | 89.69 ± 0.49 | 94.71 ± 0.39 | 83.34 ± 0.21 |
+| OSNet-AIN | CE/triplet baseline | 87.16 | 92.03 | 80.53 |
+| OSNet-AIN | WICV-Net | 89.62 | 95.36 | 81.60 |
+| ResNet-50 | CE/triplet baseline | 75.35 | 84.30 | 66.67 |
+| ResNet-50 | WICV-Net | 90.07 | 95.04 | 84.37 |
+| Swin-T | WICV-Net | 90.65 | 94.35 | 84.87 |
+
+**Table 12 — Cross-condition generalization on OSNet (mAP, %).** All three
+configurations are trained within the same codebase on the same
+condition-restricted splits; `ce_only` is the Table 8 internal control, not
+the Table 7 Torchreid baseline.
+
+| Protocol (train → test) | `ce_only` (control) | WICV-Net (proposed) | + FCA (w_adv=0.1) |
+| --- | ---: | ---: | ---: |
+| no-rain → rain | 33.64 | **42.74** | 42.69 |
+| rain → no-rain | 30.81 | **39.60** | 39.43 |
+| morning → evening | 9.51 | **13.12** | 12.03 |
+| evening → morning | 23.77 | **31.21** | 30.48 |
+
+**Table 13 — k-reciprocal re-ranking add-on (OSNet, %).** Applied to the
+seed-42 checkpoint of the final objective.
+
+| Setting | Rank-1 | Rank-5 | mAP |
+| --- | ---: | ---: | ---: |
+| WICV-Net (seed 42) | 89.22 | 94.28 | 83.13 |
+| + re-ranking | 91.24 | 94.98 | 87.02 |
+
+## Citation
+
+<!-- year/volume/pages/doi are placeholders until IEEE Access assigns them on publication. -->
+
+```bibtex
+@article{tran2026wicvnet,
+  title   = {{WICV-Net}: A Cross-View Alignment Framework for Multi-Weather Traffic Vehicle Re-Identification},
+  author  = {Tran, Thi Kim Ngan and Le, Trong Hoang Dung and Phan, Huy Kien and Do, Trong-Hop},
+  journal = {IEEE Access},
+  year    = {2026},
+  note    = {In press}
+}
 ```
-
-## Baselines
-
-The Torchreid baseline runner trains multiple models, selects the best checkpoint using validation mAP, and evaluates the selected checkpoint on the test split.
-
-Default baseline models:
-
-```text
-osnet_x1_0
-osnet_ain_x1_0
-osnet_ibn_x1_0
-resnet50
-resnet101
-mobilenetv2_x1_0
-```
-
-Run all default baselines:
-
-```bash
-python -u baselines/torchreid/run_all.py \
-  --manifest "$CROP_ROOT/manifest.csv" \
-  --train-csv "$SPLIT_ROOT/train.csv" \
-  --val-query "$SPLIT_ROOT/val_query.csv" \
-  --val-gallery "$SPLIT_ROOT/val_gallery.csv" \
-  --query "$SPLIT_ROOT/query.csv" \
-  --gallery "$SPLIT_ROOT/gallery.csv" \
-  --results-root "$RESULT_ROOT" \
-  --epochs 100 \
-  --eval-every 5 \
-  --patience 4 \
-  --batch-size 64 \
-  --num-workers 4 \
-  --no-auto-split
-```
-
-Outputs:
-
-```text
-results/baselines_final/summary.csv
-results/baselines_final/summary.json
-results/baselines_final/<model_name>/model_best.pth
-results/baselines_final/<model_name>/best_val.json
-results/baselines_final/<model_name>/eval.json
-```
-
-## Notes for Paper Experiments
-
-Recommended result tables:
-
-1. Overall benchmark across all conditions.
-2. Per-condition benchmark using the same trained model.
-3. Dataset statistics by condition and class.
-4. Split statistics for train/validation/test.
-5. Qualitative success and failure examples.
-
-For per-condition results, train the model once on the full training split, then evaluate the selected checkpoint on condition-specific query/gallery subsets.
 
 ## License
 
-Please check the Hugging Face dataset page for the dataset license and usage terms.
+### Code License
+
+The source code in this repository is released under the MIT License — see
+[`LICENSE`](LICENSE).
+
+### Dataset License
+
+The VN2V-Weather dataset distributed on Hugging Face is released under
+**CC BY-NC 4.0** (non-commercial use, with attribution). See the
+[Hugging Face dataset page](https://huggingface.co/datasets/mya15thoct/multi-weather_traffic_data)
+for the authoritative license terms.
