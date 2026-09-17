@@ -74,6 +74,7 @@ class TrainDataset(Dataset):
 
 
 def build_model(model_name: str, num_classes: int, device: torch.device, pretrained: bool):
+    """Build a Torchreid softmax-head model for identity fine-tuning."""
     try:
         import torchreid
     except ImportError as exc:
@@ -90,6 +91,7 @@ def build_model(model_name: str, num_classes: int, device: torch.device, pretrai
 
 
 def save_checkpoint(path: Path, model, args: argparse.Namespace, label_to_index: dict[str, int]) -> None:
+    """Save model weights plus the metadata evaluate.py needs to rebuild the model."""
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
         {
@@ -110,6 +112,7 @@ def evaluate_validation(
     args: argparse.Namespace,
     device: torch.device,
 ) -> dict:
+    """Rank-1/Rank-5/mAP on the validation split, used for checkpoint selection."""
     query_features = extract_features(model, val_query_rows, args.batch_size, args.num_workers, device)
     gallery_features = extract_features(model, val_gallery_rows, args.batch_size, args.num_workers, device)
     return compute_metrics(

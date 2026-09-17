@@ -39,6 +39,7 @@ def read_manifest(path: Path) -> list[dict]:
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
+    """Write rows to a crop-manifest-schema CSV, creating parent directories as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=FIELDS)
@@ -48,6 +49,7 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 
 def copy_split_images(rows: list[dict], output_dir: Path) -> None:
+    """Copy each row's crop into output_dir/<condition>/id_<vehicle_id>/, skipping existing copies."""
     output_dir.mkdir(parents=True, exist_ok=True)
     for row in rows:
         src = Path(row["crop_path"])
@@ -62,6 +64,7 @@ def copy_split_images(rows: list[dict], output_dir: Path) -> None:
 
 
 def print_stats(name: str, rows: list[dict]) -> None:
+    """Print image/identity counts and per-condition/per-label breakdowns for one split."""
     ids = {row["vehicle_id"] for row in rows}
     by_condition = Counter(row["condition"] for row in rows)
     by_label = Counter(row["label"] for row in rows)

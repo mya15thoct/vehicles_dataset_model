@@ -49,6 +49,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
+    """Write rows to a crop-manifest-schema CSV, creating parent directories as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=FIELDS)
@@ -70,6 +71,10 @@ def crop_key(crop_path: str) -> str:
 
 
 def load_sizes(manifest_path: Path) -> tuple[dict[str, float], int]:
+    """Compute each crop's equal-area edge length (sqrt(w*h)) from the manifest box geometry.
+
+    Returns (crop_key -> size, number of duplicate crop_key collisions seen).
+    """
     sizes: dict[str, float] = {}
     collisions = 0
     with manifest_path.open("r", newline="", encoding="utf-8") as fh:

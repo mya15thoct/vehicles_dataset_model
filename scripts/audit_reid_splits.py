@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Audit Re-ID split CSV files for identity and crop leakage."""
+"""Audit Re-ID split CSV files for identity and crop leakage.
+
+Checks that no identity or crop_path is shared across train/val/test, that
+every val/test identity has both a query and a gallery crop, and that
+query/gallery rows carry the expected view. Writes a JSON report with a
+top-level "passed" boolean and, on failure, the specific failed checks and
+example overlapping identities/crops.
+"""
 
 from __future__ import annotations
 
@@ -25,18 +32,22 @@ def parse_args() -> argparse.Namespace:
 
 
 def view_group(row: dict) -> str:
+    """Row-based wrapper around normalize_view for the 'before'/'after' camera group."""
     return normalize_view(row["view"])
 
 
 def id_set(rows: list[dict]) -> set[str]:
+    """Distinct identities present in a list of split rows."""
     return {identity(row) for row in rows}
 
 
 def crop_set(rows: list[dict]) -> set[str]:
+    """Distinct crop_path values present in a list of split rows."""
     return {row["crop_path"] for row in rows}
 
 
 def summarize(name: str, rows: list[dict]) -> dict:
+    """Counts and by-condition/view/label breakdowns for one split, for the report."""
     return {
         "rows": len(rows),
         "identities": len(id_set(rows)),
@@ -50,10 +61,12 @@ def summarize(name: str, rows: list[dict]) -> dict:
 
 
 def overlap(left: set[str], right: set[str]) -> int:
+    """Size of the intersection; used as a leakage count that must be zero."""
     return len(left & right)
 
 
 def sample_overlap(left: set[str], right: set[str], limit: int = 10) -> list[str]:
+    """A few example overlapping values, for a human to inspect a failed check."""
     return sorted(left & right)[:limit]
 
 

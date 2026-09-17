@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_checkpoint(weights: str, device: torch.device) -> dict | None:
+    """Load a train.py checkpoint dict, or None if no --weights path was given."""
     if not weights:
         return None
     try:
@@ -44,6 +45,7 @@ def load_checkpoint(weights: str, device: torch.device) -> dict | None:
 
 
 def build_model(model_name: str, num_classes: int, device: torch.device, pretrained: bool):
+    """Build a Torchreid softmax-head model, ready for checkpoint state_dict loading."""
     try:
         import torchreid
     except ImportError as exc:

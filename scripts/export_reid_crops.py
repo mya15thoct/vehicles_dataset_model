@@ -44,6 +44,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def iter_boxes(xml_path: Path):
+    """Yield one dict per annotated, identity-labeled box in a CVAT XML file.
+
+    Boxes without an `id` attribute (unlabeled) are skipped.
+    """
     root = ET.parse(xml_path).getroot()
     for image in root.findall("image"):
         frame_id = int(image.attrib["id"])
@@ -66,10 +70,12 @@ def iter_boxes(xml_path: Path):
 
 
 def normalize_label(label: str) -> str:
+    """Normalize a CVAT class label for case/whitespace-insensitive comparison."""
     return label.strip().lower()
 
 
 def clamp_box(box: dict, width: int, height: int) -> tuple[int, int, int, int]:
+    """Clip a box's XML coordinates to the actual frame bounds."""
     left = max(0, min(width, round(box["xtl"])))
     top = max(0, min(height, round(box["ytl"])))
     right = max(0, min(width, round(box["xbr"])))

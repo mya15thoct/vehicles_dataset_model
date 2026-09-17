@@ -56,6 +56,7 @@ def read_csv_rows(path: Path) -> list[dict]:
 
 
 def write_csv_rows(path: Path, rows: list[dict]) -> None:
+    """Write rows to a crop-manifest-schema CSV, creating parent directories as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=FIELDS)
@@ -65,10 +66,12 @@ def write_csv_rows(path: Path, rows: list[dict]) -> None:
 
 
 def factor_value(condition: str, position: int) -> str:
+    """Read the time (position 0) or weather (position 1) factor out of a condition name."""
     return condition.split("_")[position]
 
 
 def print_stats(name: str, rows: list[dict]) -> None:
+    """Print image/identity counts and the per-condition breakdown for one protocol split."""
     ids = {identity(row) for row in rows}
     by_condition = Counter(row["condition"] for row in rows)
     print(f"  {name}: images={len(rows)}, identities={len(ids)}, by_condition={dict(sorted(by_condition.items()))}")

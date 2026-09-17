@@ -76,10 +76,16 @@ def parse_args() -> argparse.Namespace:
 
 
 def safe_name(model_name: str) -> str:
+    """Turn a model name into a filesystem-safe results subdirectory name."""
     return model_name.replace("/", "_").replace("-", "_")
 
 
 def ensure_split_files(args: argparse.Namespace, results_root: Path) -> None:
+    """Build the identity split via build_train_test_split.py if any split CSV is missing.
+
+    Raises FileNotFoundError if files are missing and --no-auto-split was
+    passed, or if the build still leaves files missing afterward.
+    """
     split_paths = [
         Path(args.train_csv),
         Path(args.val_query),
@@ -125,6 +131,7 @@ def ensure_split_files(args: argparse.Namespace, results_root: Path) -> None:
 
 
 def train_command(args: argparse.Namespace, model_name: str, output_dir: Path) -> list[str]:
+    """Build the train.py subprocess argv for one baseline model."""
     command = [
         sys.executable,
         "-u",
@@ -162,6 +169,7 @@ def train_command(args: argparse.Namespace, model_name: str, output_dir: Path) -
 
 
 def eval_command(args: argparse.Namespace, model_name: str, output_dir: Path, eval_path: Path) -> list[str]:
+    """Build the evaluate.py subprocess argv, preferring model_best.pth over model_last.pth."""
     weights_path = output_dir / "model_best.pth"
     if not weights_path.exists():
         weights_path = output_dir / "model_last.pth"
@@ -190,6 +198,7 @@ def eval_command(args: argparse.Namespace, model_name: str, output_dir: Path, ev
 
 
 def write_summary(results_root: Path, rows: list[dict]) -> None:
+    """Write the aggregated per-model eval results to summary.json and summary.csv."""
     json_path = results_root / "summary.json"
     csv_path = results_root / "summary.csv"
     json_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")

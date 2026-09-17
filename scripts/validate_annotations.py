@@ -34,6 +34,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def iter_boxes(xml_path: Path):
+    """Yield one dict per annotated box in a CVAT XML file."""
     root = ET.parse(xml_path).getroot()
     for image in root.findall("image"):
         frame_id = int(image.attrib["id"])
@@ -54,6 +55,7 @@ def iter_boxes(xml_path: Path):
 
 
 def load_view(xml_path: Path) -> dict:
+    """Parse one view's XML and summarize per-identity label consistency."""
     boxes = list(iter_boxes(xml_path))
     labels = Counter(box["label"] for box in boxes)
     missing_id = sum(1 for box in boxes if box["id"] is None)
@@ -85,6 +87,7 @@ def load_view(xml_path: Path) -> dict:
 
 
 def view_group_name(view_name: str) -> str:
+    """Collapse a specific view folder name to its 'before'/'after' camera group."""
     if view_name.startswith("before"):
         return "before"
     if view_name.startswith("after"):
@@ -170,6 +173,7 @@ def main() -> int:
 
 
 def merge_id_labels(view_datas: list[dict]) -> dict[int, Counter]:
+    """Merge per-view id->label-Counter maps (e.g. before_before + before_after) into one."""
     merged: dict[int, Counter] = defaultdict(Counter)
     for data in view_datas:
         for vehicle_id, labels in data["id_labels"].items():

@@ -43,6 +43,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def build_model(model_name: str, device: torch.device):
+    """Build an ImageNet/ReID-pretrained Torchreid model (no fine-tuning weights loaded)."""
     try:
         import torchreid
     except ImportError as exc:

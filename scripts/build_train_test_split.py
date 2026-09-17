@@ -29,10 +29,12 @@ def read_manifest(path: Path) -> list[dict]:
 
 
 def key(row: dict) -> tuple[str, str]:
+    """Identity key scoping vehicle_id to its condition (ids are not unique across conditions)."""
     return row["condition"], row["vehicle_id"]
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
+    """Write rows to a crop-manifest-schema CSV, creating parent directories as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=FIELDS)
@@ -42,6 +44,7 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 
 def print_stats(name: str, rows: list[dict]) -> None:
+    """Print image/identity counts and per-condition/per-label breakdowns for one split."""
     ids = {key(row) for row in rows}
     by_condition = Counter(row["condition"] for row in rows)
     by_label = Counter(row["label"] for row in rows)
