@@ -101,7 +101,7 @@ methods/
 The full image dataset is hosted on Hugging Face:
 
 ```text
-https://huggingface.co/datasets/mya15thoct/multi-weather_traffic_data
+https://huggingface.co/datasets/vehicle-research/multi-weather_traffic_data
 ```
 
 The dataset contains four traffic conditions:
@@ -230,7 +230,7 @@ pip install -U huggingface_hub
 Download the dataset:
 
 ```bash
-hf download mya15thoct/multi-weather_traffic_data \
+hf download vehicle-research/multi-weather_traffic_data \
   --repo-type dataset \
   --local-dir /path/to/multi-weather_traffic_data
 ```
@@ -499,5 +499,5 @@ The source code in this repository is released under the MIT License — see
 
 The VN2V-Weather dataset distributed on Hugging Face is released under
 **CC BY-NC 4.0** (non-commercial use, with attribution). See the
-[Hugging Face dataset page](https://huggingface.co/datasets/mya15thoct/multi-weather_traffic_data)
+[Hugging Face dataset page](https://huggingface.co/datasets/vehicle-research/multi-weather_traffic_data)
 for the authoritative license terms.

@@ -7,7 +7,7 @@ This file summarizes the current validated state of the dataset used by this rep
 Public dataset:
 
 ```text
-https://huggingface.co/datasets/mya15thoct/multi-weather_traffic_data
+https://huggingface.co/datasets/vehicle-research/multi-weather_traffic_data
 ```
 
 Downloaded locally as `$DATA_ROOT` (see the root `README.md` Setup section).
