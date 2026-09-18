@@ -24,8 +24,8 @@ WICV-Net exploits both with three components on top of a BNNeck identity head:
 
 ```text
                           +--> BNNeck --> ID classifier ----------> L_id (CE + label smoothing)
-crop --> backbone --> f --+--> cross-view batch-hard triplet -----> L_cv-tri
-                          +--> cross-view prototype memory -------> L_cvpa
+crop --> backbone --> f --+--> cross-view prototype memory -------> L_cvpa
+                          +--> cross-view batch-hard triplet -----> L_cv-tri
                           +--> GRL --> time head (morning/evening)-+
                           +--> GRL --> weather head (norain/rain)--+-> L_adv
 ```
@@ -33,69 +33,31 @@ crop --> backbone --> f --+--> cross-view batch-hard triplet -----> L_cv-tri
 Total objective:
 
 ```text
-L = L_id + w_tri * L_cv-tri + w_cvpa * L_cvpa + w_adv * L_adv
+L = L_id + w_cvpa * L_cvpa + w_tri * L_cv-tri + w_adv * L_adv
 ```
 
-### 1. Cross-View Batch-Hard Triplet (CV-Tri)
-
-Batch-hard triplet mining where the hardest **positive** for each anchor is
-restricted to samples of the same identity from the *opposite* camera view
-(falling back to any positive when the identity appears in only one view).
-This aligns the training objective with the actual retrieval protocol
-(after-view query vs. before-view gallery) instead of letting the loss be
-satisfied by trivially easy same-view positives.
-
-### 2. Cross-View Prototype Alignment (CVPA)
+### 1. Cross-View Prototype Alignment (CVPA)
 
 An EMA memory stores one L2-normalized prototype per `(identity, view)` pair.
 Each embedding is classified with an InfoNCE loss against the prototypes of
 the **opposite view**, i.e. a rear-view crop is pulled toward its own
 front-view prototype and pushed from all other vehicles' front-view
 prototypes. Unlike batch-level losses, the memory provides a stable,
-dataset-wide cross-view anchor for every identity in every batch.
+dataset-wide cross-view anchor for every identity in every batch. The
+three-seed component ablation (Table 9) attributes most of WICV-Net's gain
+to this component (ce_only 71.18 -> CVPA+plain-triplet 83.04 mAP).
 
-## WICV-Net v2: two structural modules (raises novelty beyond loss combination)
+### 2. Cross-View Batch-Hard Triplet (CV-Tri)
 
-The v1 objective above is three *training-time metric constraints*. All three
-are symmetric, and none of them exists at inference -- at test time the model
-is just backbone + BNNeck. That is exactly what invites the reviewer comment
-"this is a combination of existing techniques". v2 adds two modules that
-exploit structure specific to this benchmark instead.
-
-### 4. Cross-View Transition (CVT) -- directional, and alive at inference
-
-The before->after view change here is **not arbitrary**: the same vehicle
-passes a fixed point and is observed front-first, rear-second. The view gap is
-therefore a *systematic, learnable function*, not merely a distance to be
-minimized. CVT learns two residual maps, `T_b2a` and `T_a2b`, trained on the
-in-batch cross-view positive pairs the balanced PK sampler guarantees. The
-target of each direction is **detached**: CVT's job is to learn the
-transformation, not to drag the two subspaces together -- that is CVPA's job,
-and letting both gradients flow would let the objectives collapse the view
-distinction to satisfy each other.
-
-At inference the gallery (before view) is pushed through `T_b2a` so retrieval
-happens inside a single view subspace. This makes CVT the only component that
-survives into test time (`--cvt-mode gallery|query|off`).
-
-### 5. Condition-Adaptive Normalization (CAN) -- replaces FCA
-
-The loss-weight sweep produced a clear negative result: adversarially erasing
-the condition signal does not help (best mAP was at `w_adv` ~ 0). We read that
-as evidence the condition is **not pure nuisance noise but a known covariate**.
-CAN therefore keeps one normalization branch per condition (the 2x2
-time x weather grid), so condition-specific first- and second-order feature
-shifts are removed by construction instead of being fought with a reversed
-gradient. A shared branch is always maintained and is used whenever the
-condition label is unavailable -- which is also what the cross-condition
-protocol must use, since there the test condition is unseen
-(`--no-condition-routing`).
-
-Honest caveat to state in the paper: CAN reads the condition label at test
-time. That label is scene metadata (timestamp plus weather), not a per-vehicle
-annotation, so it leaks no identity information -- but the shared-branch
-fallback number should also be reported for readers who do not accept that
-assumption.
+Batch-hard triplet mining where the hardest **positive** for each anchor is
+restricted to samples of the same identity from the *opposite* camera view
+(falling back to any positive when the identity appears in only one view).
+This aligns the training objective with the actual retrieval protocol
+(after-view query vs. before-view gallery) instead of letting the loss be
+satisfied by trivially easy same-view positives. Once CVPA is present, CV-Tri's
+additional mean gain (+0.30 mAP) is smaller than the pooled seed standard
+deviation; it is retained because it does not hurt and reduces run-to-run
+variance, not because it independently improves accuracy.
 
 ### 3. Factorized Condition-Adversarial Learning (FCA)
 
@@ -132,21 +94,23 @@ CV-Tri and CVPA always receive cross-view positives.
 
 Contribution claims for the paper:
 
-1. A cross-view-aware objective (CV-Tri + CVPA) that aligns training with the
-   two-camera retrieval protocol.
-2. Factorized condition-adversarial learning that uses free multi-weather
-   labels to learn weather/time-invariant identity features.
-3. Consistent gains over six baseline backbones on the multi-weather
-   benchmark, with per-condition and cross-condition generalization analysis
-   and a full component ablation.
+1. A cross-view-aware objective (CVPA + CV-Tri) that aligns training with the
+   two-camera retrieval protocol; CVPA accounts for most of the gain, CV-Tri
+   is a smaller refinement on top of it (Table 9).
+2. Consistent gains over CE/triplet baselines across multiple backbones,
+   with per-condition, size-matched, and cross-condition generalization
+   analysis and a full component ablation.
+3. A negative result for factorized condition-adversarial learning (FCA):
+   explicitly removing weather/time information does not improve on
+   cross-view alignment alone, and cross-condition robustness emerges from
+   CVPA/CV-Tri without using condition labels during training (Table 12).
 
 ## Files
 
 ```text
 dataset.py                CSV dataset, condition factorization, cross-view PK sampler
-modules.py                v2: CrossViewTransition (CVT) and ConditionAdaptiveBNNeck (CAN)
-model.py                  Backbone + (condition-adaptive) BNNeck + GRL heads + CVT
-losses.py                 CV-Tri loss, CVPA prototype memory, CVT transition loss
+model.py                  Backbone + BNNeck + GRL heads
+losses.py                 CV-Tri loss, CVPA prototype memory
 metrics.py                Feature extraction and Rank-1/Rank-5/mAP (same protocol as baselines)
 rerank.py                 K-reciprocal re-ranking (Zhong et al., CVPR 2017)
 train.py                  Training with validation-mAP model selection and early stopping
@@ -176,44 +140,24 @@ python -u methods/wicv/train.py \
   --val-query "$SPLIT_ROOT/val_query.csv" \
   --val-gallery "$SPLIT_ROOT/val_gallery.csv" \
   --model-name osnet_x1_0 \
-  --output-root results/wicv/osnet_x1_0_full \
-  --epochs 60 --eval-every 5 --patience 4
+  --output-root results/wicv/osnet_x1_0_final \
+  --epochs 60 --eval-every 5 --patience 0 \
+  --no-adv --w-tri 1.0 --w-cvpa 0.5 --seed 42
 ```
+
+`--patience 0` is required for the fixed 60-epoch schedule used for every
+reported WICV-Net result (`--patience 4` gives the early-stopping schedule
+instead, used only for the loss-weight sweep). `--no-adv` is required for the
+adversarial-free final objective; omitting it trains with the FCA term at
+its default weight, which the ablation in the paper does not recommend.
 
 Evaluate on the test split (overall + per condition):
 
 ```bash
 python -u methods/wicv/evaluate.py \
-  --checkpoint results/wicv/osnet_x1_0_full/model_best.pth \
+  --checkpoint results/wicv/osnet_x1_0_final/model_best.pth \
   --query "$SPLIT_ROOT/query.csv" \
   --gallery "$SPLIT_ROOT/gallery.csv"
-```
-
-Train the v2 model (both structural modules, FCA dropped):
-
-```bash
-python -u methods/wicv/train.py \
-  --train-csv "$SPLIT_ROOT/train.csv" \
-  --val-query "$SPLIT_ROOT/val_query.csv" \
-  --val-gallery "$SPLIT_ROOT/val_gallery.csv" \
-  --model-name osnet_x1_0 \
-  --use-cvt --use-can --no-adv \
-  --output-root results/wicv/osnet_x1_0_v2 \
-  --epochs 60 --eval-every 5 --patience 4
-
-python -u methods/wicv/evaluate.py \
-  --checkpoint results/wicv/osnet_x1_0_v2/model_best.pth \
-  --query "$SPLIT_ROOT/query.csv" \
-  --gallery "$SPLIT_ROOT/gallery.csv" \
-  --cvt-mode gallery
-```
-
-For the cross-condition protocol the test condition is unseen, so CAN must
-fall back to its shared branch:
-
-```bash
-python -u methods/wicv/evaluate.py \
-  --checkpoint <v2 checkpoint> --no-condition-routing
 ```
 
 Run the complete ablation study (paper Table: component analysis):

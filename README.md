@@ -235,12 +235,7 @@ hf download mya15thoct/multi-weather_traffic_data \
   --local-dir /path/to/multi-weather_traffic_data
 ```
 
-If the dataset is gated, request access on the Hugging Face dataset page and
-log in before downloading:
-
-```bash
-hf auth login
-```
+The dataset is public — no access request is required.
 
 In the examples below, set these paths for your machine:
 
