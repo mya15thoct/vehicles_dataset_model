@@ -316,9 +316,8 @@ python -u baselines/torchreid/run_all.py \
   --no-auto-split
 ```
 
-Default baseline models: `osnet_x1_0`, `osnet_ain_x1_0`, `osnet_ibn_x1_0`,
-`resnet50`, `resnet101`, `mobilenetv2_x1_0`. See `baselines/README.md` and
-`baselines/torchreid/README.md` for single-model commands.
+See `baselines/README.md` and `baselines/torchreid/README.md` for the full
+list of supported backbones and single-model commands.
 
 ### 3. Train / evaluate WICV-Net (fixed 60-epoch schedule)
 
