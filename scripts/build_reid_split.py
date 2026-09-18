@@ -32,7 +32,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-
 def copy_split_images(rows: list[dict], output_dir: Path) -> None:
     """Copy each row's crop into output_dir/<condition>/id_<vehicle_id>/, skipping existing copies."""
     output_dir.mkdir(parents=True, exist_ok=True)
