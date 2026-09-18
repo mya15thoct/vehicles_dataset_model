@@ -11,7 +11,7 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from reid_common.csv_schema import FIELDS, normalize_view, read_csv
+from reid_common.csv_schema import normalize_view, read_csv, write_csv
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,15 +33,6 @@ def parse_args() -> argparse.Namespace:
 
 def key(row: dict) -> tuple[str, str]:
     return row["condition"], str(int(row["vehicle_id"]))
-
-
-def write_csv(path: Path, rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=FIELDS)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({field: row[field] for field in FIELDS})
 
 
 def write_selected_identities(path: Path, split_keys: dict[str, set[tuple[str, str]]]) -> None:

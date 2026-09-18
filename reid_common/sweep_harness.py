@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
+from reid_common.subprocess_utils import run
 
-def run(command: list[str]) -> None:
-    """Run a command to completion, echoing it first. Raises on non-zero exit."""
-    print("+", " ".join(command), flush=True)
-    subprocess.run(command, check=True)
+__all__ = ["run", "resolve_checkpoint", "eval_summary_row"]
 
 
 def resolve_checkpoint(output_dir: Path) -> Path:

@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from reid_common.csv_schema import normalize_view
 from reid_common.paths import resolve_with_fallback
 
 
@@ -86,15 +87,6 @@ def load_view(xml_path: Path) -> dict:
     }
 
 
-def view_group_name(view_name: str) -> str:
-    """Collapse a specific view folder name to its 'before'/'after' camera group."""
-    if view_name.startswith("before"):
-        return "before"
-    if view_name.startswith("after"):
-        return "after"
-    return view_name
-
-
 def main() -> int:
     args = parse_args()
     config_path = Path(args.config)
@@ -139,7 +131,7 @@ def main() -> int:
 
         grouped = defaultdict(list)
         for view_name, data in views.items():
-            grouped[view_group_name(view_name)].append(data)
+            grouped[normalize_view(view_name)].append(data)
 
         if "before" in grouped and "after" in grouped:
             before_labels = merge_id_labels(grouped["before"])

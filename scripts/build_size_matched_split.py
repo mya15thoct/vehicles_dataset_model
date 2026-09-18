@@ -26,7 +26,7 @@ import math
 from collections import defaultdict
 from pathlib import Path, PurePosixPath
 
-from reid_common.csv_schema import FIELDS, identity, normalize_view, read_csv
+from reid_common.csv_schema import identity, normalize_view, read_csv, write_csv
 
 SPLIT_NAMES = ["query", "gallery", "val_query", "val_gallery"]
 
@@ -46,16 +46,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--splits", nargs="+", default=SPLIT_NAMES, choices=SPLIT_NAMES)
     parser.add_argument("--report", default="docs/size_matched_split.md")
     return parser.parse_args()
-
-
-def write_csv(path: Path, rows: list[dict]) -> None:
-    """Write rows to a crop-manifest-schema CSV, creating parent directories as needed."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=FIELDS)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({field: row.get(field, "") for field in FIELDS})
 
 
 def crop_key(crop_path: str) -> str:

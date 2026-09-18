@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from reid_common.subprocess_utils import stream_to_log
+from reid_common.sweep_harness import resolve_checkpoint
 
 DEFAULT_MODELS = [
     "osnet_x1_0",
@@ -170,9 +171,7 @@ def train_command(args: argparse.Namespace, model_name: str, output_dir: Path) -
 
 def eval_command(args: argparse.Namespace, model_name: str, output_dir: Path, eval_path: Path) -> list[str]:
     """Build the evaluate.py subprocess argv, preferring model_best.pth over model_last.pth."""
-    weights_path = output_dir / "model_best.pth"
-    if not weights_path.exists():
-        weights_path = output_dir / "model_last.pth"
+    weights_path = resolve_checkpoint(output_dir)
     command = [
         sys.executable,
         "-u",

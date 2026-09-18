@@ -9,7 +9,7 @@ import json
 import sys
 from pathlib import Path
 
-from reid_common.csv_schema import FIELDS, identity, read_csv
+from reid_common.csv_schema import identity, read_csv, write_csv
 from reid_common.subprocess_utils import stream_to_log
 
 DEFAULT_CONDITIONS = [
@@ -53,15 +53,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="")
     parser.add_argument("--skip-existing", action="store_true")
     return parser.parse_args()
-
-
-def write_csv(path: Path, rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=FIELDS)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({field: row.get(field, "") for field in FIELDS})
 
 
 def filter_pair(query_rows: list[dict], gallery_rows: list[dict], field: str, value: str) -> tuple[list[dict], list[dict]]:

@@ -4,13 +4,12 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import shutil
 import sys
 from collections import Counter
 from pathlib import Path
 
-from reid_common.csv_schema import FIELDS, normalize_view, read_csv
+from reid_common.csv_schema import normalize_view, read_csv, write_csv
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,15 +31,6 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-
-def write_csv(path: Path, rows: list[dict]) -> None:
-    """Write rows to a crop-manifest-schema CSV, creating parent directories as needed."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=FIELDS)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({field: row[field] for field in FIELDS})
 
 
 def copy_split_images(rows: list[dict], output_dir: Path) -> None:

@@ -24,6 +24,16 @@ def read_csv(path: Path) -> list[dict]:
         return list(csv.DictReader(fh))
 
 
+def write_csv(path: Path, rows: list[dict]) -> None:
+    """Write rows to a crop-manifest-schema CSV, creating parent directories as needed."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=FIELDS)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: row[field] for field in FIELDS})
+
+
 def identity(row: dict) -> str:
     return f"{row['condition']}::{int(row['vehicle_id']):06d}"
 
