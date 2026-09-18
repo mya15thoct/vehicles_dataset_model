@@ -35,6 +35,9 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
 
+from reid_common.csv_schema import normalize_view
+from reid_common.paths import resolve_or_bare
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -196,19 +199,6 @@ def save(fig, output_root: Path, stem: str, photo: bool = False) -> None:
 # data loading
 # --------------------------------------------------------------------------
 
-def normalize_view(view: str) -> str:
-    if view.startswith("before"):
-        return "before"
-    if view.startswith("after"):
-        return "after"
-    return view
-
-
-def resolve(root: Path, name: str) -> Path:
-    path = root / name
-    return path if path.exists() else Path(name)
-
-
 def parse_xml(xml_path: Path) -> list[dict]:
     records = []
     for image in ET.parse(xml_path).getroot().findall("image"):
@@ -238,8 +228,8 @@ def load_streams(config_path: Path, image_root: Path, annotation_root: Path) -> 
         if condition.get("status") != "completed":
             continue
         for view_name, view_cfg in condition["views"].items():
-            xml_path = resolve(annotation_root, view_cfg["annotation"])
-            image_dir = resolve(image_root, view_cfg["images"])
+            xml_path = resolve_or_bare(annotation_root, view_cfg["annotation"])
+            image_dir = resolve_or_bare(image_root, view_cfg["images"])
             if not xml_path.exists():
                 print(f"skip missing XML: {xml_path}")
                 continue

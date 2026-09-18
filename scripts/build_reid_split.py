@@ -10,7 +10,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from reid_common.csv_schema import FIELDS, normalize_view
+from reid_common.csv_schema import FIELDS, normalize_view, read_csv
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,11 +31,6 @@ def parse_args() -> argparse.Namespace:
         help="Also copy crops into query/ and gallery/ folders.",
     )
     return parser.parse_args()
-
-
-def read_manifest(path: Path) -> list[dict]:
-    with path.open("r", newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
@@ -82,7 +77,7 @@ def main() -> int:
         print(f"Missing manifest: {manifest_path}", file=sys.stderr)
         return 1
 
-    rows = read_manifest(manifest_path)
+    rows = read_csv(manifest_path)
     for row in rows:
         row["view_group"] = normalize_view(row["view"])
 

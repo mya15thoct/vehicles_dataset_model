@@ -60,8 +60,12 @@ def evaluate_retrieval(
     procedure that will actually be reported.
     """
     use_condition = bool(getattr(model, "use_can", False))
-    query_features = extract_features(model, query_rows, batch_size, num_workers, device, height, width, use_condition)
-    gallery_features = extract_features(model, gallery_rows, batch_size, num_workers, device, height, width, use_condition)
+    query_features = extract_features(
+        model, query_rows, batch_size, num_workers, device, height, width, use_condition, log_prefix="val"
+    )
+    gallery_features = extract_features(
+        model, gallery_rows, batch_size, num_workers, device, height, width, use_condition, log_prefix="val"
+    )
     if getattr(model, "transition", None) is not None and cvt_mode != "off":
         query_features, gallery_features = apply_cross_view_transition(
             model, query_features, gallery_features, device, mode=cvt_mode

@@ -7,6 +7,7 @@ normalization, ranking) is identical everywhere a model is scored.
 
 from __future__ import annotations
 
+import logging
 import math
 
 import torch
@@ -14,6 +15,8 @@ import torch.nn.functional as F
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+
+logger = logging.getLogger(__name__)
 
 TIME_NAMES = ["morning", "evening"]
 WEATHER_NAMES = ["norain", "rain"]
@@ -107,10 +110,10 @@ def extract_features(
             for offset, row_index in enumerate(indices.tolist()):
                 features[row_index] = embeddings[offset]
             if batch_index % 20 == 0 or batch_index == len(loader):
-                print(
-                    f"  {log_prefix} batch {batch_index}/{math.ceil(len(dataset) / batch_size)} "
-                    f"images={min(batch_index * batch_size, len(dataset))}/{len(dataset)}",
-                    flush=True,
+                logger.info(
+                    "  %s batch %d/%d images=%d/%d",
+                    log_prefix, batch_index, math.ceil(len(dataset) / batch_size),
+                    min(batch_index * batch_size, len(dataset)), len(dataset),
                 )
     return torch.stack(features, dim=0)
 

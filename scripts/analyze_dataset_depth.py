@@ -33,6 +33,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from reid_common.csv_schema import normalize_view
+
 INK = (25, 31, 40)
 MUTED = (91, 99, 112)
 GRID = (222, 226, 232)
@@ -102,14 +104,6 @@ def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
 def text_size(draw: ImageDraw.ImageDraw, text: str, font) -> tuple[int, int]:
     box = draw.textbbox((0, 0), text, font=font)
     return box[2] - box[0], box[3] - box[1]
-
-
-def normalize_view(view: str) -> str:
-    if view.startswith("before"):
-        return "before"
-    if view.startswith("after"):
-        return "after"
-    return view
 
 
 def size_bucket_label(index: int, edges: list[int]) -> str:

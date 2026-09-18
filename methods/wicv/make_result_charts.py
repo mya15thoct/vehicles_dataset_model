@@ -11,11 +11,11 @@ conference/make_result_chart.py (flat white background, rounded bars).
 from __future__ import annotations
 
 import argparse
-import csv
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from reid_common.csv_schema import read_csv
 from reid_common.plotting import load_font, text_size
 
 INK = (25, 31, 40)
@@ -51,11 +51,6 @@ def parse_args() -> argparse.Namespace:
 def save_image(image: Image.Image, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path, quality=95)
-
-
-def read_csv(path: Path) -> list[dict]:
-    with path.open("r", newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
 
 
 def draw_legend(draw: ImageDraw.ImageDraw, x: int, y: int, entries: list[tuple[str, tuple]], font) -> None:

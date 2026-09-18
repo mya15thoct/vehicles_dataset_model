@@ -113,8 +113,8 @@ def evaluate_validation(
     device: torch.device,
 ) -> dict:
     """Rank-1/Rank-5/mAP on the validation split, used for checkpoint selection."""
-    query_features = extract_features(model, val_query_rows, args.batch_size, args.num_workers, device)
-    gallery_features = extract_features(model, val_gallery_rows, args.batch_size, args.num_workers, device)
+    query_features = extract_features(model, val_query_rows, args.batch_size, args.num_workers, device, log_prefix="val")
+    gallery_features = extract_features(model, val_gallery_rows, args.batch_size, args.num_workers, device, log_prefix="val")
     return compute_metrics(
         query_features,
         gallery_features,

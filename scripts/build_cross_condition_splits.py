@@ -26,7 +26,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from reid_common.csv_schema import FIELDS, identity, normalize_view
+from reid_common.csv_schema import FIELDS, identity, normalize_view, read_csv
 
 # protocol -> (factor position in condition name, train value, test value)
 PROTOCOLS = {
@@ -48,11 +48,6 @@ def parse_args() -> argparse.Namespace:
         choices=list(PROTOCOLS.keys()),
     )
     return parser.parse_args()
-
-
-def read_csv_rows(path: Path) -> list[dict]:
-    with path.open("r", newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
 
 
 def write_csv_rows(path: Path, rows: list[dict]) -> None:
@@ -88,7 +83,7 @@ def main() -> int:
         if not path.exists():
             print(f"Missing split file: {path}", file=sys.stderr)
             return 1
-        files[name] = read_csv_rows(path)
+        files[name] = read_csv(path)
 
     all_rows = [row for rows in files.values() for row in rows]
 

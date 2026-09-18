@@ -11,7 +11,7 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from reid_common.csv_schema import FIELDS, normalize_view
+from reid_common.csv_schema import FIELDS, normalize_view, read_csv
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,11 +29,6 @@ def parse_args() -> argparse.Namespace:
         help="Optional condition names to include. Defaults to all conditions found in the manifest.",
     )
     return parser.parse_args()
-
-
-def read_manifest(path: Path) -> list[dict]:
-    with path.open("r", newline="", encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
 
 
 def key(row: dict) -> tuple[str, str]:
@@ -109,7 +104,7 @@ def main() -> int:
 
     manifest_path = Path(args.manifest)
     output_root = Path(args.output_root)
-    rows = read_manifest(manifest_path)
+    rows = read_csv(manifest_path)
     for row in rows:
         row["view_group"] = normalize_view(row["view"])
 
