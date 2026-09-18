@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import random
 import sys
 from pathlib import Path
@@ -21,6 +22,9 @@ from PIL import Image, ImageDraw, ImageOps
 from dataset import identity, read_csv
 from metrics import extract_features
 from model import WICVNet
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 CELL_WIDTH = 128
 CELL_HEIGHT = 256
