@@ -6,7 +6,7 @@ This repository is the official code release for:
 
 > **WICV-Net: A Cross-View Alignment Framework for Multi-Weather Traffic Vehicle Re-Identification**
 > Thi Kim Ngan Tran, Trong Hoang Dung Le, Huy Kien Phan, Trong-Hop Do
-> University of Information Technology & Vietnam National University, Ho Chi Minh City, Vietnam — submitted to *IEEE Access*.
+> University of Information Technology, Ho Chi Minh City, Vietnam; Vietnam National University, Ho Chi Minh City, Vietnam — submitted to *IEEE Access*.
 
 It makes two contributions:
 
@@ -24,8 +24,12 @@ It makes two contributions:
    four unseen cross-condition transfer protocols by 3.6–9.1 mAP without
    using weather/time labels during training.
 
-The dataset is collected from two synchronized camera views of the same
-traffic scene:
+The dataset is collected from two paired camera views of the same traffic
+scene, both mounted on a pedestrian footbridge over a national highway so the
+two views share an elevated, roughly top-down geometry. The two streams cover
+the same traffic window but are **not hardware-synchronized**; cross-view
+correspondence between the two streams is established through manual
+identity annotation rather than timestamp alignment:
 
 - `before`: front-view stream
 - `after`: rear-view stream
@@ -42,26 +46,34 @@ top of a standard BNNeck identity head:
 
 ```text
                           +--> BNNeck --> ID classifier ---> L_id (CE + label smoothing)
-crop --> backbone --> f --+--> cross-view batch-hard triplet -> L_cv-tri
-                          +--> cross-view prototype memory ---> L_cvpa
+crop --> backbone --> f --+--> cross-view prototype memory ---> L_cvpa
+                          +--> cross-view batch-hard triplet -> L_cv-tri
 ```
 
-- **Cross-View Batch-Hard Triplet (CV-Tri)** restricts the hardest positive
-  for each anchor to the *opposite* camera view, aligning training with the
-  actual retrieval protocol instead of letting the loss be satisfied by easy
-  same-view positives.
 - **Cross-View Prototype Alignment (CVPA)** maintains an EMA memory of one
   L2-normalized prototype per `(identity, view)` pair and pulls each
   embedding toward its identity's opposite-view prototype via an InfoNCE
-  loss, giving a stable, dataset-wide cross-view anchor.
-- A view-balanced PK sampler guarantees every training batch contains
-  cross-view positives for both losses.
+  loss, giving a stable, dataset-wide cross-view anchor. The three-seed
+  component ablation attributes most of WICV-Net's gain to CVPA.
+- **Cross-View Batch-Hard Triplet (CV-Tri)** restricts the hardest positive
+  for each anchor to the *opposite* camera view, aligning training with the
+  actual retrieval protocol instead of letting the loss be satisfied by easy
+  same-view positives. On top of CVPA its marginal contribution is small
+  (within run-to-run noise in the three-seed ablation); it is retained
+  because it does not hurt and appears to reduce variance.
+- A view-balanced PK sampler splits each identity's instances evenly between
+  the two views whenever both are present in the batch, so CV-Tri and CVPA
+  receive cross-view positives for every identity that has them. When only
+  one view of an identity is present, that identity's loss term falls back
+  to standard same-view mining instead.
 
-A factorized condition-adversarial term (FCA) and two structural v2 modules
-(cross-view transition, condition-adaptive normalization) were also
-investigated; see `methods/wicv/README.md` for the full design discussion
-and ablations. The final reported objective is adversarial-free
-(identity CE + CV-Tri + CVPA) — see [Main Results](#main-results).
+A factorized condition-adversarial term (FCA) was also investigated (a
+gradient-reversed classifier discouraging the identity feature from encoding
+weather/time information); it gave no additional gain over cross-view
+alignment alone and is **not** part of the final objective. See
+`methods/wicv/README.md` for the full design discussion and ablations. The
+final reported objective is adversarial-free (identity CE + CVPA + CV-Tri) —
+see [Main Results](#main-results).
 
 ## Repository Structure
 
@@ -73,8 +85,9 @@ docs/                       # Dataset notes and statistics (see docs/README.md)
 scripts/
   validate_annotations.py   # Validate XML labels and cross-view identity consistency
   export_reid_crops.py      # Export vehicle crops from frame images and XML
-  build_reid_split.py       # Build query/gallery split for zero-shot checks
-  build_train_test_split.py # Build identity-disjoint train/val/test split
+  build_reid_split.py       # Simple query/gallery split, no train/val — not the benchmark split
+  build_train_test_split.py # Build the identity-disjoint train/val/test split used for all reported results
+  build_size_matched_split.py # Filter an existing split to one common min-box-size threshold (see Reproducing Results)
   audit_reid_splits.py      # Check split CSV files for data leakage
 baselines/
   osnet/                    # Pretrained OSNet sanity-check evaluator
@@ -145,19 +158,23 @@ different vehicle      -> different id
 
 Current validated annotation statistics:
 
-| Condition | View | Boxes | IDs |
-| --- | --- | ---: | ---: |
-| `morning_norain` | `before` | 12,784 | 628 |
-| `morning_norain` | `after` | 10,785 | 571 |
-| `evening_norain` | `before` | 10,798 | 567 |
-| `evening_norain` | `after` | 10,631 | 537 |
-| `morning_rain` | `before` | 18,445 | 669 |
-| `morning_rain` | `after` | 16,074 | 618 |
-| `evening_rain` | `before` | 12,807 | 635 |
-| `evening_rain` | `after` | 8,628 | 581 |
-| **Total** |  | **100,952** |  |
+| Condition | View | Frames | Boxes | IDs |
+| --- | --- | ---: | ---: | ---: |
+| `morning_norain` | `before` | 4,923 | 12,784 | 628 |
+| `morning_norain` | `after` | 5,207 | 10,785 | 571 |
+| `evening_norain` | `before` | 4,597 | 10,798 | 567 |
+| `evening_norain` | `after` | 5,037 | 10,631 | 537 |
+| `morning_rain` | `before` | 6,671 | 18,445 | 669 |
+| `morning_rain` | `after` | 6,700 | 16,074 | 618 |
+| `evening_rain` | `before` | 4,561 | 12,807 | 635 |
+| `evening_rain` | `after` | 4,558 | 8,628 | 581 |
+| **Total** |  | **42,254** | **100,952** |  |
 
-Cross-view identity consistency:
+Cross-view identity consistency (identities are scoped to a condition — a
+vehicle observed in `morning_rain` and one observed in `evening_rain` never
+share an identity — so matching is defined within a condition, not across
+conditions; the 2,307 cross-view-matchable identities used for the benchmark
+split are the sum of the four "Shared IDs" values below):
 
 | Condition | Shared IDs | Before-only IDs | After-only IDs | Label mismatches |
 | --- | ---: | ---: | ---: | ---: |
@@ -166,11 +183,15 @@ Cross-view identity consistency:
 | `morning_rain` | 618 | 51 | 0 | 0 |
 | `evening_rain` | 581 | 54 | 0 | 0 |
 
-Vehicle classes:
+Vehicle class distribution (naturally imbalanced — trucks and motorbikes
+dominate, unlike car-centric benchmarks such as VeRi-776 and VehicleID):
 
-```text
-bus, car, motorbike, truck
-```
+| Class | Boxes | Share |
+| --- | ---: | ---: |
+| `truck` | 48,801 | 48.34% |
+| `motorbike` | 30,360 | 30.07% |
+| `car` | 19,439 | 19.26% |
+| `bus` | 2,352 | 2.33% |
 
 ## Environment Setup
 
@@ -231,6 +252,9 @@ RESULT_ROOT=results/baselines_final
 ```
 
 ## Reproducing Results
+
+All paper results were produced on a single NVIDIA RTX A6000 GPU (48 GB)
+with CUDA 12.6.
 
 ### 1. Data pipeline
 
@@ -303,24 +327,72 @@ Default baseline models: `osnet_x1_0`, `osnet_ain_x1_0`, `osnet_ibn_x1_0`,
 
 ### 3. Train / evaluate WICV-Net (fixed 60-epoch schedule)
 
+The paper uses two distinct training schedules: an **early-stopping**
+schedule (validate every 5 epochs, stop after 4 non-improving validations —
+used only for the loss-weight sweep and is what `--patience 4` below would
+give you) and the **fixed** schedule (run the full 60 epochs, no early
+stopping, then evaluate the best-validation-mAP checkpoint). Every reported
+WICV-Net result uses the fixed schedule, i.e. `--patience 0`. Both schedules
+select the checkpoint the same way (best validation mAP); they differ only in
+whether training can stop early. `--no-adv` is required to get the
+adversarial-free final objective — omitting it trains with the
+condition-adversarial term (FCA) at its default weight, which is the
+configuration the paper's ablation rejected, not the one reported in
+[Main Results](#main-results):
+
 ```bash
 python -u methods/wicv/train.py \
   --train-csv "$SPLIT_ROOT/train.csv" \
   --val-query "$SPLIT_ROOT/val_query.csv" \
   --val-gallery "$SPLIT_ROOT/val_gallery.csv" \
   --model-name osnet_x1_0 \
-  --output-root results/wicv/osnet_x1_0_full \
-  --epochs 60 --eval-every 5 --patience 4
+  --output-root results/wicv/osnet_x1_0_final \
+  --epochs 60 --eval-every 5 --patience 0 \
+  --no-adv --w-tri 1.0 --w-cvpa 0.5 \
+  --seed 42
 
 python -u methods/wicv/evaluate.py \
-  --checkpoint results/wicv/osnet_x1_0_full/model_best.pth \
+  --checkpoint results/wicv/osnet_x1_0_final/model_best.pth \
   --query "$SPLIT_ROOT/query.csv" \
   --gallery "$SPLIT_ROOT/gallery.csv"
 ```
 
-See `methods/wicv/README.md` for the full ablation/sensitivity/multi-seed
-runners (`run_ablation.py`, `run_sensitivity.py`, `run_seeds.py`) and the v2
-structural-module variants.
+`evaluate.py` reports overall mAP/Rank-1/Rank-5 **and** a per-condition
+breakdown for every condition present in the query CSV automatically (no
+separate script needed) — see the `per_condition` section of the written
+`eval.json`.
+
+For the three-seed OSNet result in [Main Results](#main-results)
+(83.34 ± 0.21 mAP), repeat with `--seed 43` and `--seed 44` into separate
+`--output-root` directories, or use `methods/wicv/run_seeds.py` (see
+`methods/wicv/README.md`) to run and aggregate all three seeds in one
+command. See `methods/wicv/README.md` also for the ablation/sensitivity
+runners (`run_ablation.py`, `run_sensitivity.py`) and the investigated-but-
+unpublished v2 structural-module variants (`--use-cvt`, `--use-can`).
+
+#### Size-matched evaluation
+
+Native per-condition results are confounded by condition-dependent minimum
+annotated vehicle size (small, dark vehicles are harder to annotate, so the
+effective size cutoff differs by condition). To reproduce the paper's
+size-matched protocol, which applies one common threshold across conditions:
+
+```bash
+python -u scripts/build_size_matched_split.py \
+  --manifest "$CROP_ROOT/manifest.csv" \
+  --split-root "$SPLIT_ROOT" \
+  --output-root "$SPLIT_ROOT/size_matched" \
+  --min-size auto
+
+python -u methods/wicv/evaluate.py \
+  --checkpoint results/wicv/osnet_x1_0_final/model_best.pth \
+  --query "$SPLIT_ROOT/size_matched/query.csv" \
+  --gallery "$SPLIT_ROOT/size_matched/gallery.csv"
+```
+
+`--min-size auto` uses the strictest per-stream minimum observed in the
+split as the common threshold; the paper reports this as ≈143.6 px
+equal-area edge length on its data, covering 88.8% of queries.
 
 ### 4. Cross-condition generalization
 
@@ -340,7 +412,7 @@ python -u methods/wicv/run_cross_condition.py \
 
 ```bash
 python -u methods/wicv/evaluate.py \
-  --checkpoint results/wicv/osnet_x1_0_full/model_best.pth \
+  --checkpoint results/wicv/osnet_x1_0_final/model_best.pth \
   --query "$SPLIT_ROOT/query.csv" \
   --gallery "$SPLIT_ROOT/gallery.csv" \
   --rerank
@@ -371,7 +443,9 @@ Recommended metrics: Rank-1, Rank-5, mAP.
 **Table 7 — WICV-Net vs. CE/triplet baseline, per backbone (%).** WICV-Net
 rows use the final adversarial-free objective under a fixed 60-epoch
 schedule; the OSNet row is mean ± std over 3 seeds. CE/triplet baselines use
-the standard Torchreid strong-baseline recipe with early stopping.
+the strong Re-ID baseline recipe of Luo et al., "Bag of Tricks and a Strong
+Baseline for Deep Person Re-Identification", CVPRW 2019, as implemented in
+Torchreid, with early stopping.
 
 | Backbone | Method | Rank-1 | Rank-5 | mAP |
 | --- | --- | ---: | ---: | ---: |
@@ -385,8 +459,10 @@ the standard Torchreid strong-baseline recipe with early stopping.
 
 **Table 12 — Cross-condition generalization on OSNet (mAP, %).** All three
 configurations are trained within the same codebase on the same
-condition-restricted splits; `ce_only` is the Table 8 internal control, not
-the Table 7 Torchreid baseline.
+condition-restricted splits; `ce_only` is a seed-matched internal control
+(identity-CE only, all proposed components disabled) trained in this same
+codebase, not the separately-implemented Torchreid CE/triplet baseline used
+in the table above.
 
 | Protocol (train → test) | `ce_only` (control) | WICV-Net (proposed) | + FCA (w_adv=0.1) |
 | --- | ---: | ---: | ---: |
@@ -413,7 +489,7 @@ seed-42 checkpoint of the final objective.
   author  = {Tran, Thi Kim Ngan and Le, Trong Hoang Dung and Phan, Huy Kien and Do, Trong-Hop},
   journal = {IEEE Access},
   year    = {2026},
-  note    = {In press}
+  note    = {Under review}
 }
 ```
 

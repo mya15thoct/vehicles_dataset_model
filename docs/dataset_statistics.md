@@ -67,7 +67,7 @@ Use this file to copy tables into the paper. Numbers are based on the current va
 
 ## Suggested Text For Paper
 
-The dataset contains 42,254 frames and 100,952 annotated vehicle bounding boxes across four weather/time conditions and two synchronized camera views. Each vehicle annotation includes a bounding box, a vehicle class, and an identity ID. The identity IDs are consistent across the two views, enabling cross-view vehicle re-identification. The dataset contains four vehicle categories: bus, car, motorbike, and truck. The class distribution is naturally imbalanced, with trucks and motorbikes appearing more frequently than buses, reflecting real-world traffic composition at the collection site.
+The dataset contains 42,254 frames and 100,952 annotated vehicle bounding boxes across four weather/time conditions and two paired (not hardware-synchronized) camera views. Each vehicle annotation includes a bounding box, a vehicle class, and an identity ID. The identity IDs are consistent across the two views, enabling cross-view vehicle re-identification. The dataset contains four vehicle categories: bus, car, motorbike, and truck. The class distribution is naturally imbalanced, with trucks and motorbikes appearing more frequently than buses, reflecting real-world traffic composition at the collection site.
 
 ## Notes
 

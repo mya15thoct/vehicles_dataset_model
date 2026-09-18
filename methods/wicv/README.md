@@ -121,7 +121,7 @@ CV-Tri and CVPA always receive cross-view positives.
   label-driven framework that works with any Re-ID backbone.
 - Disentanglement works for vehicles (e.g. DualDis, WWW 2026) decouple
   component/attribute features but do not use *free scene-level condition
-  labels adversarially*, and none target the synchronized front/rear two-view
+  labels adversarially*, and none target the paired front/rear two-view
   setting.
 - Viewpoint-aware vehicle Re-ID handles orientation within one camera; our
   cross-view prototype memory explicitly bridges two fixed, opposing views,

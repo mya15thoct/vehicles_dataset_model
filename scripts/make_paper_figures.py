@@ -539,7 +539,7 @@ def make_dataset_overview(dataset: list[dict], output_root: Path, thumb_width: i
     figure = make_horizontal_contact_sheet(
         cards,
         title="Dataset overview",
-        subtitle="Representative frames across four weather/time conditions and two synchronized views",
+        subtitle="Representative frames across four weather/time conditions and two paired views",
         cols=4,
     )
     path = output_root / "figure_01_dataset_overview.jpg"
@@ -808,7 +808,7 @@ def make_statistics_figure(dataset: list[dict], output_root: Path) -> dict:
             stats["view_counts"],
             panel_w,
             250,
-            subtitle="Annotated boxes in the synchronized before/after views",
+            subtitle="Annotated boxes in the paired before/after views",
             color_map=VIEW_COLORS,
             label_map=VIEW_LABELS,
             order=["before", "after"],
