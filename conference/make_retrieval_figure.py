@@ -17,7 +17,6 @@ from reid_common.plotting import load_font
 from reid_common.reid_eval import extract_features
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-logger = logging.getLogger(__name__)
 
 CONDITION_ORDER = [
     "morning_norain",

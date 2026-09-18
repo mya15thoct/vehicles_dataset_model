@@ -24,7 +24,6 @@ from metrics import extract_features
 from model import WICVNet
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-logger = logging.getLogger(__name__)
 
 CELL_WIDTH = 128
 CELL_HEIGHT = 256
