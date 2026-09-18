@@ -31,9 +31,10 @@ import math
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from reid_common.csv_schema import normalize_view
+from reid_common.plotting import load_font, text_size
 
 INK = (25, 31, 40)
 MUTED = (91, 99, 112)
@@ -86,24 +87,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", default="docs/figures")
     parser.add_argument("--stats-output", default="docs/dataset_depth.md")
     return parser.parse_args()
-
-
-def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
-    candidates = [
-        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-    ]
-    for candidate in candidates:
-        path = Path(candidate)
-        if path.exists():
-            return ImageFont.truetype(str(path), size=size)
-    return ImageFont.load_default()
-
-
-def text_size(draw: ImageDraw.ImageDraw, text: str, font) -> tuple[int, int]:
-    box = draw.textbbox((0, 0), text, font=font)
-    return box[2] - box[0], box[3] - box[1]
 
 
 def size_bucket_label(index: int, edges: list[int]) -> str:

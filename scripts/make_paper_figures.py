@@ -17,6 +17,9 @@ try:
 except ImportError as exc:  # pragma: no cover
     raise SystemExit("Pillow is required: pip install pillow") from exc
 
+from reid_common.paths import resolve_with_fallback
+from reid_common.plotting import load_font, text_size
+
 
 PAPER_BG = (248, 249, 250)
 CARD_BG = (255, 255, 255)
@@ -88,34 +91,6 @@ def parse_args() -> argparse.Namespace:
 
 def normalize_label(label: str) -> str:
     return label.strip().lower()
-
-
-def resolve_path(root: Path, name: str, fallback_root: Path) -> Path:
-    path = root / name
-    if path.exists():
-        return path
-    fallback = fallback_root / name
-    if fallback.exists():
-        return fallback
-    return path
-
-
-def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-    ]
-    for candidate in candidates:
-        path = Path(candidate)
-        if path.exists():
-            return ImageFont.truetype(str(path), size=size)
-    return ImageFont.load_default()
-
-
-def text_size(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> tuple[int, int]:
-    bbox = draw.textbbox((0, 0), text, font=font)
-    return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 
 def pretty_condition(name: str) -> str:
@@ -194,8 +169,8 @@ def load_dataset(config_path: Path, image_root_arg: str | None, annotation_root_
             continue
         condition_item = {"name": condition["name"], "views": {}}
         for view_name, view_cfg in condition["views"].items():
-            xml_path = resolve_path(annotation_root, view_cfg["annotation"], repo_root)
-            image_dir = resolve_path(image_root, view_cfg["images"], repo_root)
+            xml_path = resolve_with_fallback(annotation_root, view_cfg["annotation"], repo_root)
+            image_dir = resolve_with_fallback(image_root, view_cfg["images"], repo_root)
             if not xml_path.exists():
                 raise FileNotFoundError(f"Missing annotation XML: {xml_path}")
             records = parse_xml(xml_path)

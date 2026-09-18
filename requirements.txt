@@ -7,4 +7,3 @@ matplotlib
 
 # Dataset download from the Hugging Face Hub
 huggingface_hub
-gdown

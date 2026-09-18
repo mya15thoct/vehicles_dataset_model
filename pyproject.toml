@@ -8,6 +8,13 @@ version = "0.1.0"
 description = "Shared primitives for the VN2V-Weather / WICV-Net data pipeline and experiment scripts"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
+dependencies = [
+    "Pillow",
+    # torch and torchvision are required (reid_common.reid_eval) but deliberately
+    # left undeclared here, matching requirements.txt: install the build matching
+    # your CUDA/CPU setup first via https://pytorch.org/get-started/locally/,
+    # otherwise `pip install -e .` may try to pull a generic build over it.
+]
 
 [tool.setuptools]
 packages = ["reid_common"]

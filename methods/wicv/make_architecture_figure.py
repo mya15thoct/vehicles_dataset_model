@@ -28,6 +28,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from reid_common.plotting import text_size
+
 SCALE = 2  # render at 2x for print, then keep the large canvas
 
 BG = (255, 255, 255)
@@ -59,11 +61,6 @@ def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
         if path.exists():
             return ImageFont.truetype(str(path), size=s(size))
     return ImageFont.load_default()
-
-
-def text_size(draw: ImageDraw.ImageDraw, text: str, font) -> tuple[int, int]:
-    box_ = draw.textbbox((0, 0), text, font=font)
-    return box_[2] - box_[0], box_[3] - box_[1]
 
 
 def centered_text(draw, cx: float, cy: float, text: str, font, fill=INK) -> None:

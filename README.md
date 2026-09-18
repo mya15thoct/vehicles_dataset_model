@@ -94,6 +94,9 @@ baselines/
   torchreid/                # Fine-tuning/evaluation baselines
 methods/
   wicv/                     # Proposed WICV-Net training framework (see methods/wicv/README.md)
+conference/                 # Condition-balanced-subset pipeline for a separate, shorter conference
+                             # paper reusing this dataset (see conference/README.md); not part of
+                             # the IEEE Access results in this README
 ```
 
 ## Dataset
